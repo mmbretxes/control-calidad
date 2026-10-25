@@ -33,6 +33,8 @@
     const colorFase = (fase) => fase === 'Pre-Suministro' ? '#b45309' : (fase === 'Durante Suministro' ? '#0f766e' : (fase === 'Final Suministro' ? '#1d4ed8' : 'var(--text-muted)'));
 
     function render(container, materialId, cfg) {
+        // Registro de la configuración, para generar la impresión a partir de los datos
+        (window.__configFichas = window.__configFichas || {})[materialId] = { tipo: 'suministros', cfg };
         const P = cfg.prefijo;
         const projectData = currentProject;
         if (!projectData.formData) projectData.formData = {};
@@ -222,5 +224,15 @@
         renderAll();
     }
 
-    window.SuministrosRecepcion = { render };
+    // Utilidades para la impresión generada a partir de los datos
+    function documentosDe(cfg, inst) {
+        const lista = typeof cfg.documentos === 'function' ? cfg.documentos(inst) : [...(cfg.documentos || [])];
+        if (cfg.selectorDcor && inst.dcor) lista.splice(2, 0, DOC_DCOR);
+        return lista;
+    }
+    function caracteristicasDe(cfg, inst) {
+        if (!cfg.caracteristicas) return [];
+        return typeof cfg.caracteristicas === 'function' ? cfg.caracteristicas(inst) : cfg.caracteristicas;
+    }
+    window.SuministrosRecepcion = { render, documentosDe, caracteristicasDe, ENTREGADO, NO_PROCEDE, ETIQUETAS_GENERICAS };
 })();

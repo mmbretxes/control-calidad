@@ -2072,6 +2072,10 @@ function generatePrintDocument(action = 'print') {
     `;
     printArea.innerHTML = html;
 
+    // Las fichas con generador propio se imprimen desde sus datos (impresion.js);
+    // el resto pasa por la limpieza de pantalla de siempre y se integra en el documento.
+    const docNuevo = !!window.Impresion;
+    const ordenCapitulos = [];
     const cats = ['recepcion', 'ejecucion', 'ensayos'];
     cats.forEach(cat => {
         const blockCheck = document.getElementById(`print-block-${cat}`);
@@ -2086,10 +2090,13 @@ function generatePrintDocument(action = 'print') {
             if (!template) return;
             
             if (printOnlyWithData && !hasDataToPrint(matId, template)) return; 
+            ordenCapitulos.push(matId);
+            if (docNuevo && Impresion.tieneGenerador(template)) return;
             
             const chapContainer = document.createElement('div');
             chapContainer.className = 'material-section';
-            chapContainer.style.pageBreakBefore = 'always';
+            chapContainer.dataset.mat = matId;
+            if (!docNuevo) chapContainer.style.pageBreakBefore = 'always';
             
             if (template.customRenderer && typeof window[template.customRenderer] === 'function') {
                 window[template.customRenderer](chapContainer, matId);
@@ -2699,13 +2706,37 @@ function generatePrintDocument(action = 'print') {
             lbl.style.paddingRight = '5px';
         });
     
+    if (docNuevo) {
+        // Contenido ya limpio de las fichas especiales, sin su título (lo pone el documento)
+        const htmlAntiguo = {};
+        printArea.querySelectorAll('.material-section[data-mat]').forEach(sec => {
+            const t = sec.querySelector('h1, h2');
+            if (t) t.remove();
+            // Quitar bloques de observaciones vacíos (título + campo en blanco)
+            sec.querySelectorAll('span.form-control').forEach(sp => {
+                if (sp.textContent.trim() || sp.querySelector('img')) return;
+                const padre = sp.parentElement;
+                const hermanos = padre ? Array.from(padre.children).filter(x => x !== sp) : [];
+                if (padre && padre !== sec && hermanos.length <= 1 && hermanos.every(h => /^(H\d|LABEL|STRONG)$/.test(h.tagName) && /observaci/i.test(h.textContent))) padre.remove();
+            });
+            htmlAntiguo[sec.dataset.mat] = sec.innerHTML;
+        });
+        const capitulos = ordenCapitulos.filter(id => {
+            const tpl = materialesTemplate.find(m => m.id === id);
+            return Impresion.tieneGenerador(tpl) || htmlAntiguo[id] !== undefined;
+        });
+        printArea.innerHTML = Impresion.construir({
+            capitulos, soloDatos: printOnlyWithData, intro: currentProject.introText || '', htmlAntiguo
+        });
+    }
+
     if (action === 'print') {
         imprimirDesdeApp();
     } else if (action === 'word') {
         // Insertar saltos de página específicos de Word usando el DOM
-        const sections = printArea.querySelectorAll('.material-section');
+        const sections = printArea.querySelectorAll(docNuevo ? '.pd-pagina' : '.material-section');
         sections.forEach((sec, idx) => {
-            if (idx > 0) {
+            if (idx > 0 || docNuevo) {
                 const br = document.createElement('br');
                 br.setAttribute('clear', 'all');
                 br.style.pageBreakBefore = 'always';

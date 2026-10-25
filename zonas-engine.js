@@ -46,6 +46,8 @@
     }
 
     function render(container, materialId, cfg) {
+        // Registro de la configuración, para generar la impresión a partir de los datos
+        (window.__configFichas = window.__configFichas || {})[materialId] = { tipo: 'zonas', cfg };
         const P = cfg.prefijo;
         const PP = cfg.prefijoPuntos || P;
         const campoNombre = cfg.campoNombre || 'customName';
