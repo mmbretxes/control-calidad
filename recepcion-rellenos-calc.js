@@ -98,7 +98,7 @@ window.renderRecepcionRellenosCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title rrel-name" data-idx="${index}" value="${inst.customName || ''}" placeholder="Identificación del suministro (Ej. Zahorra ZA-20, Grava encachado, Geotextil 150 g/m²...)">
+                        <input type="text" class="unified-title rrel-name" data-idx="${index}" value="${escHtml(inst.customName || '')}" placeholder="Identificación del suministro (Ej. Zahorra ZA-20, Grava encachado, Geotextil 150 g/m²...)">
                     </div>
                     <button class="btn rrel-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
@@ -113,11 +113,11 @@ window.renderRecepcionRellenosCalc = function(container, materialId) {
                     </div>
                     <div>
                         <label class="form-label">Ubicación / Destino en obra</label>
-                        <input type="text" class="form-control rrel-ubicacion" data-idx="${index}" value="${inst.ubicacion || ''}" placeholder="Ej. Bajo solera, Trasdós muros, Zanjas...">
+                        <input type="text" class="form-control rrel-ubicacion" data-idx="${index}" value="${escHtml(inst.ubicacion || '')}" placeholder="Ej. Bajo solera, Trasdós muros, Zanjas...">
                     </div>
                     <div>
                         <label class="form-label">Procedencia / Cantera / Fabricante</label>
-                        <input type="text" class="form-control rrel-procedencia" data-idx="${index}" value="${inst.procedencia || ''}" placeholder="Ej. Cantera autorizada, Fabricante...">
+                        <input type="text" class="form-control rrel-procedencia" data-idx="${index}" value="${escHtml(inst.procedencia || '')}" placeholder="Ej. Cantera autorizada, Fabricante...">
                     </div>
                 </div>`;
 
@@ -228,7 +228,7 @@ window.renderRecepcionRellenosCalc = function(container, materialId) {
                                 <option value="No procede" ${['No procede','No Entregado','No aplica'].includes(inst.checks[doc.id].status) ? 'selected' : ''}>No procede</option>
                             </select>
                         </td>
-                        <td style="border:1px solid var(--border); padding:0.4rem;"><input type="date" class="rrel-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date || ''}" style="width:100%; padding:0.2rem; margin:0;"></td>
+                        <td style="border:1px solid var(--border); padding:0.4rem;"><input type="date" class="rrel-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date || '')}" style="width:100%; padding:0.2rem; margin:0;"></td>
                     </tr>`;
                 });
 
@@ -236,7 +236,7 @@ window.renderRecepcionRellenosCalc = function(container, materialId) {
                     <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                         <div class="form-group" style="display:flex; border:1px solid var(--border); background:white;">
                             <div class="form-label" style="width:150px; background:#f1f5f9; padding:0.75rem; border-right:1px solid var(--border); font-weight:600; font-size:0.85rem;">Observaciones</div>
-                            <textarea class="form-control rrel-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${inst.observaciones || ''}</textarea>
+                            <textarea class="form-control rrel-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${escHtml(inst.observaciones || '')}</textarea>
                         </div>
                     </div>`;
             } else {

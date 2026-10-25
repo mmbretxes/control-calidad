@@ -88,7 +88,7 @@ window.renderRecepcionEstAceroCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title rest-name" data-idx="${index}" value="${inst.customName}" placeholder="Identificación producto / taller (Ej. Taller Metálicas S.L.)">
+                        <input type="text" class="unified-title rest-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Identificación producto / taller (Ej. Taller Metálicas S.L.)">
                     </div>
                     <button class="btn rest-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
@@ -96,7 +96,7 @@ window.renderRecepcionEstAceroCalc = function(container, materialId) {
                 <div class="dynamic-grid" style="margin-bottom: 1.5rem; gap: 1rem;">
                     <div>
                         <label class="form-label">Ubicación</label>
-                        <input type="text" class="form-control rest-ubicacion" data-idx="${index}" value="${inst.ubicacion || ''}" placeholder="Ej. Cubierta Nave A">
+                        <input type="text" class="form-control rest-ubicacion" data-idx="${index}" value="${escHtml(inst.ubicacion || '')}" placeholder="Ej. Cubierta Nave A">
                     </div>
                 </div>
             `;
@@ -122,7 +122,7 @@ window.renderRecepcionEstAceroCalc = function(container, materialId) {
 
                 let nameHtml = `<strong>${doc.name}</strong><br><span style="color:var(--text-muted); font-size:0.8rem;">${doc.desc}</span>`;
                 if (doc.custom) {
-                    nameHtml = `<input type="text" class="rest-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otra documentación..." value="${inst.checks[doc.id].label === 'Otros' ? '' : inst.checks[doc.id].label}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
+                    nameHtml = `<input type="text" class="rest-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otra documentación..." value="${escHtml(inst.checks[doc.id].label === 'Otros' ? '' : inst.checks[doc.id].label)}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
                 }
 
                 html += `<tr>
@@ -139,7 +139,7 @@ window.renderRecepcionEstAceroCalc = function(container, materialId) {
                         </select>
                     </td>
                     <td style="border:1px solid var(--border); padding:0.4rem;">
-                        <input type="date" class="rest-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date || ''}" style="width:100%; padding:0.2rem; margin:0;">
+                        <input type="date" class="rest-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date || '')}" style="width:100%; padding:0.2rem; margin:0;">
                     </td>
                 </tr>`;
             });
@@ -150,7 +150,7 @@ window.renderRecepcionEstAceroCalc = function(container, materialId) {
                 <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                     <div class="form-group" style="display:flex; border:1px solid var(--border); background:white;">
                         <div class="form-label" style="width:150px; background:#f1f5f9; padding:0.75rem; border-right:1px solid var(--border); font-weight:600; font-size:0.85rem;">Observaciones</div>
-                        <textarea class="form-control rest-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${inst.observaciones || ''}</textarea>
+                        <textarea class="form-control rest-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${escHtml(inst.observaciones || '')}</textarea>
                     </div>
                 </div>
             `;

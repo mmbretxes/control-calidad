@@ -7,6 +7,8 @@ let currentProject = {
 let currentActiveCategory = null;
 let projectDirHandle = null;
 let projectFileHandle = null;
+let projectDirty = false;   // hay cambios sin guardar
+let dirtySeq = 0;           // contador de cambios (para no perder los hechos durante un guardado)
 
 // Gestor de IndexedDB para obras recientes
 const DB = {
@@ -216,6 +218,121 @@ window.appConfirm = function(message, onConfirm) {
     });
 };
 
+// Ventana de elección con varios botones. Devuelve una promesa con el valor del botón pulsado
+// (o null si se cierra pulsando fuera). buttons: [{ label, value, primary?, danger? }]
+window.appChoice = function(title, message, buttons) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999999;padding:1rem;';
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background:#fff;padding:2rem;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-width:480px;width:100%;text-align:center;';
+        const h = document.createElement('h3');
+        h.textContent = title;
+        h.style.cssText = 'margin:0 0 1rem 0;color:#1e293b;font-size:1.2rem;';
+        const p = document.createElement('p');
+        p.textContent = message;
+        p.style.cssText = 'margin-bottom:1.5rem;line-height:1.5;color:#475569;white-space:pre-line;';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:center;gap:0.75rem;flex-wrap:wrap;';
+        const close = (v) => { overlay.remove(); resolve(v); };
+        buttons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.className = 'btn ' + (b.primary ? 'btn-primary' : 'btn-secondary');
+            btn.textContent = b.label;
+            if (b.danger) { btn.style.background = '#fee2e2'; btn.style.borderColor = '#fca5a5'; btn.style.color = '#991b1b'; }
+            btn.addEventListener('click', () => close(b.value));
+            row.appendChild(btn);
+        });
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+        modal.append(h, p, row);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    });
+};
+
+// ---------------------------------------------------------------------------
+// "Todo Correcto hoy": si en la zona hay puntos negativos (No Correcto / Incorrecto...),
+// preguntar antes si se quieren cambiar también. Si no, se respetan su resultado y su fecha.
+// ---------------------------------------------------------------------------
+const VALORES_NEGATIVOS = ['no correcto', 'incorrecto', 'no cumple', 'no conforme', 'rechazado'];
+
+function selectorDeCampo(el) {
+    let sel = el.tagName.toLowerCase();
+    // Solo clases y atributos estables (no los que cambian según el valor seleccionado)
+    const inestables = ['empty-select', 'status-ok', 'status-ko', 'status-na', 'unused-row'];
+    el.classList.forEach(c => { if (!inestables.includes(c)) sel += '.' + CSS.escape(c); });
+    Array.from(el.attributes).forEach(a => {
+        if (a.name.startsWith('data-') && a.name !== 'data-status') sel += `[${a.name}="${CSS.escape(a.value)}"]`;
+    });
+    return sel;
+}
+
+document.addEventListener('click', async function(e) {
+    const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn || !/-btn-fill-all\b/.test(btn.className)) return;
+    if (btn.dataset.state === 'undo' || btn._fillBypass) return;
+
+    // Zona = primer contenedor ascendente que incluye desplegables de resultado
+    let zona = btn.parentElement;
+    while (zona && !zona.querySelector('select')) zona = zona.parentElement;
+    if (!zona) return;
+
+    const negativos = Array.from(zona.querySelectorAll('select')).filter(s =>
+        VALORES_NEGATIVOS.includes((s.value || '').trim().toLowerCase()));
+    if (negativos.length === 0) return; // nada que preguntar: comportamiento normal
+
+    e.stopImmediatePropagation();
+    e.preventDefault();
+
+    const n = negativos.length;
+    const etiqueta = negativos[0].value;
+    const opcion = await window.appChoice(
+        'Puntos no correctos',
+        `En esta zona hay ${n} punto${n > 1 ? 's' : ''} marcado${n > 1 ? 's' : ''} como «${etiqueta}».\n¿Quieres cambiar${n > 1 ? 'los' : 'lo'} también a «Correcto»?`,
+        [
+            { label: 'Cancelar', value: null },
+            { label: `No, mantener${n > 1 ? 'los' : 'lo'}`, value: 'keep' },
+            { label: 'Sí, cambiar todos', value: 'all', primary: true }
+        ]
+    );
+    if (!opcion) return;
+
+    // Guardar el estado de los puntos negativos (resultado y fecha de su fila)
+    const guardados = negativos.map(s => {
+        const tr = s.closest('tr');
+        const fecha = tr ? tr.querySelector('input[type="date"]') : null;
+        return {
+            selSel: selectorDeCampo(s), valor: s.value,
+            fechaSel: fecha ? selectorDeCampo(fecha) : null, fecha: fecha ? fecha.value : null
+        };
+    });
+    // Buscar solo dentro de la ficha actual (varios módulos comparten prefijos de clase)
+    const ambito = btn.closest('.material-section') || document.getElementById('materials-content') || document;
+
+    btn._fillBypass = true;
+    try { btn.click(); } finally { btn._fillBypass = false; }
+
+    if (opcion === 'keep') {
+        // El módulo puede haber redibujado la zona: buscar de nuevo cada campo y restaurarlo
+        // disparando su evento "change" para que el propio módulo actualice sus datos.
+        guardados.forEach(g => {
+            const s = ambito.querySelector(g.selSel);
+            if (s) {
+                s.value = g.valor;
+                s.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (g.fechaSel) {
+                const f = ambito.querySelector(g.fechaSel);
+                if (f) {
+                    f.value = g.fecha;
+                    f.setAttribute('value', g.fecha);
+                    f.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        });
+    }
+}, true);
+
 // Global click interceptor to enforce zonaDate rules on new instances
 document.body.addEventListener('click', function(e) {
     if (e.target && e.target.tagName === 'BUTTON' && e.target.id && e.target.id.endsWith('-btn-add')) {
@@ -333,7 +450,7 @@ function initSetup() {
         
         const label = document.createElement('label');
         label.innerHTML = `
-            <input type="checkbox" class="material-checkbox" value="${mat.id}" ${isChecked ? 'checked' : ''}>
+            <input type="checkbox" class="material-checkbox" value="${escHtml(mat.id)}" ${isChecked ? 'checked' : ''}>
             <div class="material-card">
                 <span class="material-name">${mat.name}</span>
                 <div style="display:flex; gap:0.25rem; flex-shrink: 0;">
@@ -1114,6 +1231,7 @@ async function loadRecentProject(p) {
             
             // Actualizar la fecha en DB para que sea la más reciente
             await DB.saveProject(p.id, currentProject.name, projectDirHandle, projectFileHandle);
+            projectDirty = false;
             
             initSetup();
             showScreen('setup');
@@ -1192,7 +1310,30 @@ btns.new.addEventListener('click', () => {
         document.body.removeChild(overlay);
         try {
             // 1. Pedir carpeta
-            projectDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            const dirElegida = await window.showDirectoryPicker({ mode: 'readwrite' });
+
+            // 1b. Si la carpeta ya contiene una obra, no sobrescribirla
+            let existente = null;
+            try { existente = await dirElegida.getFileHandle('datos_obra.json'); } catch (e) { existente = null; }
+            if (existente) {
+                let nombreExistente = '';
+                try {
+                    const j = JSON.parse(await (await existente.getFile()).text());
+                    nombreExistente = j && j.name ? j.name : '';
+                } catch (e) { /* archivo ilegible: se trata igual, sin sobrescribir */ }
+                const op = await window.appChoice(
+                    'Esta carpeta ya contiene una obra',
+                    (nombreExistente ? `La carpeta seleccionada ya tiene los datos de la obra «${nombreExistente}».` : 'La carpeta seleccionada ya tiene un archivo datos_obra.json.') +
+                    '\nPara no perder esos datos, no se creará una obra nueva en ella.',
+                    [
+                        { label: 'Cancelar', value: null },
+                        { label: 'Abrir esa obra', value: 'open', primary: true }
+                    ]
+                );
+                if (op === 'open') await loadProjectFromDirHandle(dirElegida);
+                return;
+            }
+            projectDirHandle = dirElegida;
 
             // 2. Crear carpetas principales
             const dirRecepcion = await projectDirHandle.getDirectoryHandle('Control de recepción', { create: true });
@@ -1221,6 +1362,7 @@ btns.new.addEventListener('click', () => {
             await writable.close();
 
             // 5. Ir a la pantalla de configuración
+            projectDirty = false;
             initSetup();
             showScreen('setup');
         } catch (err) {
@@ -1306,6 +1448,7 @@ btns.home.addEventListener('click', async () => {
         dontSaveBtn.addEventListener('click', () => {
             document.body.removeChild(overlay);
             showScreen('home');
+            if (screens.home.classList.contains('active')) projectDirty = false;
         });
         
         saveBtn.addEventListener('click', async () => {
@@ -1383,13 +1526,14 @@ document.addEventListener('click', (e) => {
     }
 });
 
-async function performSave() {
-    updateProjectDataFromInputs();
-    
+async function performSave(opts = {}) {
     // Forzar blur de inputs para asegurar que guardan en onchange
-    if(document.activeElement && document.activeElement.blur) {
+    // (no en el autoguardado, para no sacar al usuario del campo que está escribiendo)
+    if (!opts.silent && document.activeElement && document.activeElement.blur) {
         document.activeElement.blur();
     }
+    updateProjectDataFromInputs();
+    const seqAlGuardar = dirtySeq;
     
     if (!currentProject.id) {
         currentProject.id = 'proj_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -1405,11 +1549,13 @@ async function performSave() {
             await writable.close();
             
             await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+            if (dirtySeq === seqAlGuardar) projectDirty = false;
             
             // Pequeño feedback visual
-            const originalHtml = btns.save.innerHTML;
-            btns.save.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Guardado';
-            setTimeout(() => { btns.save.innerHTML = originalHtml; }, 2000);
+            if (!btns.save._originalHtml) btns.save._originalHtml = btns.save.innerHTML;
+            btns.save.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ' + (opts.silent ? 'Autoguardado' : 'Guardado');
+            clearTimeout(btns.save._fbTimer);
+            btns.save._fbTimer = setTimeout(() => { btns.save.innerHTML = btns.save._originalHtml; }, 2000);
             return true;
         }
 
@@ -1428,6 +1574,7 @@ async function performSave() {
             await writable.close();
             
             await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+            if (dirtySeq === seqAlGuardar) projectDirty = false;
             return true;
         }
     } catch (err) {
@@ -1454,43 +1601,85 @@ btns.save.addEventListener('click', async () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        projectDirty = false;
     }
 });
+
+// ---------------------------------------------------------------------------
+// Cambios sin guardar: seguimiento, aviso al cerrar y autoguardado
+// ---------------------------------------------------------------------------
+function obraAbierta() {
+    return screens.setup.classList.contains('active') || screens.control.classList.contains('active') || screens.print.classList.contains('active');
+}
+function markDirty() {
+    if (!obraAbierta()) return;
+    projectDirty = true;
+    dirtySeq++;
+}
+['input', 'change'].forEach(tipo => document.addEventListener(tipo, (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    // Ignorar las opciones de la pantalla de impresión salvo el texto introductorio
+    if (t.closest('#screen-print') && t.id !== 'print-intro-text') return;
+    if (t.closest('.app-container') || t.closest('#materials-content')) markDirty();
+}, true));
+document.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!b || b.classList.contains('tab')) return;
+    // Botones dentro de las fichas (añadir/eliminar zonas, rellenar, puntos personalizados...)
+    if (b.closest('#materials-content')) markDirty();
+}, true);
+
+window.addEventListener('beforeunload', (e) => {
+    if (projectDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Autoguardado cada 60 s en el archivo de la obra (solo si ya está vinculado a un archivo)
+let autoguardando = false;
+setInterval(async () => {
+    if (!projectDirty || !projectFileHandle || autoguardando || !obraAbierta()) return;
+    autoguardando = true;
+    try { await performSave({ silent: true }); } catch (e) { /* se reintentará */ }
+    finally { autoguardando = false; }
+}, 60000);
+
+// Abrir la obra contenida en una carpeta (datos_obra.json)
+async function loadProjectFromDirHandle(dirHandle) {
+    let fileHandle;
+    try {
+        fileHandle = await dirHandle.getFileHandle('datos_obra.json');
+    } catch(e) {
+        alert("No se encontró el archivo 'datos_obra.json' en la carpeta seleccionada. Asegúrate de elegir la carpeta raíz de la obra.");
+        return false;
+    }
+    const file = await fileHandle.getFile();
+    const data = JSON.parse(await file.text());
+    if (data.name !== undefined && data.selectedMaterials) {
+        if (!data.id) {
+            data.id = 'proj_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+        projectDirHandle = dirHandle;
+        projectFileHandle = fileHandle;
+        currentProject = data;
+        await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+        projectDirty = false;
+        initSetup();
+        showScreen('setup');
+        return true;
+    }
+    alert("Formato de archivo inválido.");
+    return false;
+}
 
 // Cargar archivo JSON
 btns.load.addEventListener('click', async () => {
     try {
         if ('showDirectoryPicker' in window) {
             const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-            
-            let fileHandle;
-            try {
-                fileHandle = await dirHandle.getFileHandle('datos_obra.json');
-            } catch(e) {
-                alert("No se encontró el archivo 'datos_obra.json' en la carpeta seleccionada. Asegúrate de elegir la carpeta raíz de la obra.");
-                return;
-            }
-            
-            projectDirHandle = dirHandle;
-            projectFileHandle = fileHandle;
-            
-            const file = await fileHandle.getFile();
-            const text = await file.text();
-            
-            const data = JSON.parse(text);
-            if (data.name !== undefined && data.selectedMaterials) {
-                if (!data.id) {
-                    data.id = 'proj_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
-                }
-                currentProject = data;
-                
-                await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
-                
-                initSetup();
-                showScreen('setup');
-            } else {
-                alert("Formato de archivo inválido.");
-            }
+            await loadProjectFromDirHandle(dirHandle);
             return;
         }
     } catch (err) {
@@ -1511,6 +1700,7 @@ btns.load.addEventListener('click', async () => {
                 const data = JSON.parse(event.target.result);
                 if (data.name !== undefined && data.selectedMaterials) {
                     currentProject = data;
+                    projectDirty = false;
                     initSetup();
                     showScreen('setup');
                 } else {
@@ -1673,6 +1863,28 @@ function hasDataToPrint(matId, template) {
     return false;
 }
 
+// Cuenta las no conformidades registradas en un capítulo: resultados "No Correcto",
+// "Incorrecto", "No cumple", "No conforme", "Rechazado" y lotes de ensayo no aprobados.
+function contarNoConformidades(matId) {
+    const data = currentProject.formData ? currentProject.formData[matId] : null;
+    if (!data) return 0;
+    const negativos = ['no correcto', 'incorrecto', 'no cumple', 'no conforme', 'rechazado'];
+    let n = 0;
+    const visitados = new Set();
+    (function recorrer(v) {
+        if (v === null || v === undefined) return;
+        if (typeof v === 'string') {
+            if (negativos.includes(v.trim().toLowerCase())) n++;
+            return;
+        }
+        if (typeof v !== 'object' || visitados.has(v)) return;
+        visitados.add(v);
+        if (!Array.isArray(v) && v.aprobado === false && v.fest !== undefined) n++;
+        Object.keys(v).forEach(k => { if (k !== '_backup') recorrer(v[k]); });
+    })(data);
+    return n;
+}
+
 function renderPrintConfig() {
     const container = document.getElementById('print-selection-container');
     container.innerHTML = '';
@@ -1742,6 +1954,7 @@ function renderPrintConfig() {
 
         blockData.materials.forEach(mat => {
             const hasData = hasDataToPrint(mat.id, mat);
+            const nNoConf = contarNoConformidades(mat.id);
             const chapDiv = document.createElement('div');
             chapDiv.style.display = 'flex';
             chapDiv.style.alignItems = 'center';
@@ -1790,7 +2003,12 @@ function renderPrintConfig() {
             correctoCheck.style.cursor = 'pointer';
             correctoCheck.style.accentColor = '#16a34a';
 
-            if (currentProject.summaryCorrecto[mat.id] !== undefined) {
+            // Con no conformidades registradas, "Correcto" nunca se marca de forma automática
+            // (el técnico puede marcarlo a mano si las considera resueltas).
+            if (nNoConf > 0) {
+                correctoCheck.checked = false;
+                currentProject.summaryCorrecto[mat.id] = false;
+            } else if (currentProject.summaryCorrecto[mat.id] !== undefined) {
                 correctoCheck.checked = hasData ? Boolean(currentProject.summaryCorrecto[mat.id]) : false;
             } else {
                 correctoCheck.checked = hasData;
@@ -1803,10 +2021,19 @@ function renderPrintConfig() {
             correctoLabel.appendChild(correctoCheck);
             correctoLabel.appendChild(correctoText);
 
+            if (nNoConf > 0) {
+                const aviso = document.createElement('span');
+                aviso.className = 'print-noconf-warning';
+                aviso.textContent = `⚠ ${nNoConf} no conformidad${nNoConf > 1 ? 'es' : ''}`;
+                aviso.title = 'Este capítulo tiene puntos No Correcto / Incorrecto o lotes no conformes. Revísalos antes de marcarlo como Correcto en el certificado.';
+                aviso.style.cssText = 'color:#b91c1c; font-weight:600; font-size:0.85em; margin-left:0.5rem; white-space:nowrap;';
+                correctoLabel.appendChild(aviso);
+            }
+
             const syncFromChapCheck = () => {
                 if (chapCheck.checked) {
-                    correctoCheck.checked = true;
-                    currentProject.summaryCorrecto[mat.id] = true;
+                    correctoCheck.checked = nNoConf === 0;
+                    currentProject.summaryCorrecto[mat.id] = nNoConf === 0;
                     chapDiv.style.opacity = '1';
                 } else {
                     correctoCheck.checked = false;
@@ -1844,8 +2071,8 @@ function renderPrintConfig() {
                 const matId = c.dataset.id;
                 const corr = chaptersDiv.querySelector(`.print-correcto-${catKey}[data-id="${matId}"]`);
                 if (corr) {
-                    corr.checked = e.target.checked;
-                    currentProject.summaryCorrecto[matId] = e.target.checked;
+                    corr.checked = e.target.checked && contarNoConformidades(matId) === 0;
+                    currentProject.summaryCorrecto[matId] = corr.checked;
                 }
             });
         });
@@ -1866,9 +2093,19 @@ function updateProjectDataFromInputs() {
     if (inputs.tech) currentProject.tech = inputs.tech.value.trim();
     if (inputs.dateStart) currentProject.dateStart = inputs.dateStart.value;
     if (inputs.dateEnd) currentProject.dateEnd = inputs.dateEnd.value;
+    if (screens.setup.classList.contains('active')) {
+        const checkboxes = document.querySelectorAll('.material-checkbox:checked');
+        currentProject.selectedMaterials = Array.from(checkboxes).map(c => c.value);
+    }
 }
 
+// action: 'print' (generar e imprimir), 'word' (exportar) o 'prepare' (solo generar, p. ej. para Ctrl+P)
 function generatePrintDocument(action = 'print') {
+    // Si no estamos en la pantalla de impresión (p. ej. Ctrl+P desde las fichas),
+    // preparar la selección de capítulos con los datos actuales.
+    if (!screens.print.classList.contains('active') || !document.querySelector('[id^="print-block-"]')) {
+        renderPrintConfig();
+    }
     updateProjectDataFromInputs();
     currentProject.introText = document.getElementById('print-intro-text').value;
     const printOnlyWithDataNode = document.getElementById('print-only-with-data');
@@ -1884,17 +2121,17 @@ function generatePrintDocument(action = 'print') {
             <h1 style="text-align:center; font-size: 18pt; margin-top: 20px; margin-bottom: 50px;">PROGRAMA DE CONTROL DE CALIDAD</h1>
             
             <table class="print-header-table" style="width:100%; border:1px solid #000; margin-bottom: 30px; font-size: 10pt;">
-                <tr><td style="background:#e5e5e5; font-weight:bold; width: 30%;">Nombre de la Obra / Referencia</td><td>${currentProject.name || ''}</td></tr>
-                <tr><td style="background:#e5e5e5; font-weight:bold;">Emplazamiento</td><td>${currentProject.location || ''}</td></tr>
-                <tr><td style="background:#e5e5e5; font-weight:bold;">Promotor</td><td>${currentProject.promoter || ''}</td></tr>
-                <tr><td style="background:#e5e5e5; font-weight:bold;">Director de Obra</td><td>${currentProject.do || ''}</td></tr>
-                <tr><td style="background:#e5e5e5; font-weight:bold;">Director de Ejecución</td><td>${currentProject.de || ''}</td></tr>
-                <tr><td style="background:#e5e5e5; font-weight:bold;">Técnico redactor (Autor)</td><td>${techName}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold; width: 30%;">Nombre de la Obra / Referencia</td><td>${escHtml(currentProject.name || '')}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold;">Emplazamiento</td><td>${escHtml(currentProject.location || '')}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold;">Promotor</td><td>${escHtml(currentProject.promoter || '')}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold;">Director de Obra</td><td>${escHtml(currentProject.do || '')}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold;">Director de Ejecución</td><td>${escHtml(currentProject.de || '')}</td></tr>
+                <tr><td style="background:#e5e5e5; font-weight:bold;">Técnico redactor (Autor)</td><td>${escHtml(techName)}</td></tr>
                 <tr><td style="background:#e5e5e5; font-weight:bold;">Fecha inicio</td><td>${currentProject.dateStart ? new Date(currentProject.dateStart).toLocaleDateString('es-ES') : ''}</td></tr>
                 <tr><td style="background:#e5e5e5; font-weight:bold;">Fecha final</td><td>${currentProject.dateEnd ? new Date(currentProject.dateEnd).toLocaleDateString('es-ES') : ''}</td></tr>
             </table>
 
-            <div style="font-size: 10pt; line-height: 1.6; text-align: justify; margin-bottom: 50px; white-space: pre-wrap;">${currentProject.introText}</div>
+            <div style="font-size: 10pt; line-height: 1.6; text-align: justify; margin-bottom: 50px; white-space: pre-wrap;">${escHtml(currentProject.introText)}</div>
         </div>
     `;
     printArea.innerHTML = html;
@@ -1943,7 +2180,7 @@ function generatePrintDocument(action = 'print') {
     const signatureHtml = `
         <div class="material-section" style="margin-top: 50px; border-top: 1px solid #000; padding-top: 20px; page-break-inside: avoid; page-break-before: always;">
             <div style="text-align: right; font-size: 10pt; margin-bottom: 40px;">
-                <p style="margin-bottom: 10px;">El Técnico Autor: <strong>${techName || '___________________'}</strong></p>
+                <p style="margin-bottom: 10px;">El Técnico Autor: <strong>${escHtml(techName) || '___________________'}</strong></p>
                 <p>En ___________ a ${todayStr}</p>
             </div>
             <div style="display: flex; justify-content: flex-end; text-align: center; font-size: 10pt; padding-right: 50px;">
@@ -2237,21 +2474,11 @@ function generatePrintDocument(action = 'print') {
             if (parts.length === 3) displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
         
-        if (action === 'word') {
-            const span = document.createElement('span');
-            span.className = dateInput.className;
-            span.textContent = displayDate || '';
-            dateInput.parentNode.replaceChild(span, dateInput);
-        } else {
-            if (!val) {
-                dateInput.type = 'text'; // Ocultar placeholder
-            } else {
-                // En Print, dejamos el input type=date para que el navegador lo renderice nativo,
-                // PERO si se prefiere un span:
-                // Lo dejamos como input para no romper el CSS nativo de impresión a menos que queramos forzar span.
-                // En este caso, el navegador imprime bien type=date con valor.
-            }
-        }
+        // Tanto en impresión como en Word, la fecha se muestra como texto dd/mm/aaaa
+        const span = document.createElement('span');
+        span.className = dateInput.className;
+        span.textContent = displayDate || '';
+        dateInput.parentNode.replaceChild(span, dateInput);
     });
 
     // Ocultar aclaraciones de documentos para compactar listas en impresión y Word
@@ -2536,7 +2763,7 @@ function generatePrintDocument(action = 'print') {
         });
     
     if (action === 'print') {
-        window.print();
+        imprimirDesdeApp();
     } else if (action === 'word') {
         // Insertar saltos de página específicos de Word usando el DOM
         const sections = printArea.querySelectorAll('.material-section');
@@ -2556,7 +2783,7 @@ function generatePrintDocument(action = 'print') {
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>${currentProject.name || 'Documento'}</title>
+                <title>${escHtml(currentProject.name || 'Documento')}</title>
                 <style>
                     body { font-family: 'Arial', sans-serif; font-size: 10pt; color: #000; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
@@ -2616,6 +2843,7 @@ function isChapterCorrectoForSummary(mat) {
     if (corrCheck) {
         return corrCheck.checked;
     }
+    if (contarNoConformidades(mat.id) > 0) return false;
     if (currentProject.summaryCorrecto && currentProject.summaryCorrecto[mat.id] !== undefined) {
         return Boolean(currentProject.summaryCorrecto[mat.id]);
     }
@@ -2750,15 +2978,15 @@ function generatePrintSummaryDocument() {
             <table class="control-summary-obra-table" style="width: calc(100% - 4px); margin-left: 1px; border-collapse: collapse; border: 1px solid #000; border-right: 1.5px solid #000; margin-bottom: 12px; font-size: 8.5pt; table-layout: fixed;">
                 <tr>
                     <td style="width: 28%; background: #e5e5e5; font-weight: bold; padding: 4px 8px; border: 1px solid #000;">Nombre de la Obra / Referencia</td>
-                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${currentProject.name || ''}</td>
+                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${escHtml(currentProject.name || '')}</td>
                 </tr>
                 <tr>
                     <td style="width: 28%; background: #e5e5e5; font-weight: bold; padding: 4px 8px; border: 1px solid #000;">Emplazamiento</td>
-                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${currentProject.location || ''}</td>
+                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${escHtml(currentProject.location || '')}</td>
                 </tr>
                 <tr>
                     <td style="width: 28%; background: #e5e5e5; font-weight: bold; padding: 4px 8px; border: 1px solid #000;">Autor del programa</td>
-                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${techName}</td>
+                    <td style="width: 72%; padding: 4px 8px; border: 1px solid #000; border-right: 1.5px solid #000;">${escHtml(techName)}</td>
                 </tr>
             </table>
 
@@ -2769,7 +2997,7 @@ function generatePrintSummaryDocument() {
             <div class="control-summary-footer" style="width: calc(100% - 4px); margin-left: 1px; margin-top: 16px; border-top: 1px solid #000; padding-top: 10px; page-break-inside: avoid; display: flex; justify-content: space-between; align-items: flex-start; font-size: 9pt;">
                 <div>
                     <p style="margin: 0 0 6px 0;">Fecha: <strong>${todayStr}</strong></p>
-                    <p style="margin: 0;">El Autor del Programa: <strong>${techName || '___________________'}</strong></p>
+                    <p style="margin: 0;">El Autor del Programa: <strong>${escHtml(techName) || '___________________'}</strong></p>
                 </div>
                 <div style="text-align: center; min-width: 200px; padding-right: 30px;">
                     <p style="margin: 0;">Firma</p>
@@ -2780,7 +3008,14 @@ function generatePrintSummaryDocument() {
     `;
 
     printArea.innerHTML = html;
-    window.print();
+    imprimirDesdeApp();
+}
+
+// Lanza la impresión indicando que el contenido ya lo ha preparado la aplicación
+let impresionDesdeApp = false;
+function imprimirDesdeApp() {
+    impresionDesdeApp = true;
+    try { window.print(); } finally { impresionDesdeApp = false; }
 }
 
 const printOnlyCheckbox = document.getElementById('print-only-with-data');
@@ -2798,8 +3033,8 @@ if (printOnlyCheckbox) {
             }
             const corr = document.querySelector(`[class^="print-correcto-"][data-id="${matId}"]`);
             if (corr) {
-                corr.checked = chk.checked;
-                currentProject.summaryCorrecto[matId] = chk.checked;
+                corr.checked = chk.checked && contarNoConformidades(matId) === 0;
+                currentProject.summaryCorrecto[matId] = corr.checked;
             }
         });
     });
@@ -2844,11 +3079,12 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ExpertoInformes: Soporte nativo para Ctrl+P desde cualquier vista
+// Ctrl+P (o imprimir desde el menú del navegador): generar siempre el documento completo
+// con los datos actuales, salvo que la impresión la haya lanzado la propia aplicación
+// (documento completo o resumen ya preparados).
 window.addEventListener('beforeprint', () => {
-    const printArea = document.getElementById('print-area');
-    if (!printArea || !printArea.innerHTML.trim()) {
-        generatePrintDocument('print');
-    }
+    if (impresionDesdeApp) return;
+    generatePrintDocument('prepare');
 });
 
 async function handleExploreClick(e, mat) {

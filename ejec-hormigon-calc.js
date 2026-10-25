@@ -69,9 +69,9 @@ window.renderEjecHormigonCalc = function(container, materialId) {
             <div class="eh-param-block" data-param-type="cim">
                 <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">Parámetros Cimentación</h3>
                 <div class="dynamic-grid">
-                    <div class="form-group"><label class="form-label">Elementos indep. (zapatas)</label><input type="number" id="eh-cim-elements" class="form-control" value="${data.cim_elements}"></div>
-                    <div class="form-group"><label class="form-label">Sup. ocupación (m²)</label><input type="number" id="eh-cim-area" class="form-control" value="${data.cim_area}"></div>
-                    <div class="form-group"><label class="form-label">Volumen hormigón (m³)</label><input type="number" id="eh-cim-volume" class="form-control" value="${data.cim_volume}"></div>
+                    <div class="form-group"><label class="form-label">Elementos indep. (zapatas)</label><input type="number" id="eh-cim-elements" class="form-control" value="${escHtml(data.cim_elements)}"></div>
+                    <div class="form-group"><label class="form-label">Sup. ocupación (m²)</label><input type="number" id="eh-cim-area" class="form-control" value="${escHtml(data.cim_area)}"></div>
+                    <div class="form-group"><label class="form-label">Volumen hormigón (m³)</label><input type="number" id="eh-cim-volume" class="form-control" value="${escHtml(data.cim_volume)}"></div>
                 </div>
                 <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">*Lotes cimentación: máx 250 m² planta o 10 elementos. UIs: Cada elemento si vol < 350m³, si no, máx 10 elem / 250m³.</p>
             </div>
@@ -79,9 +79,9 @@ window.renderEjecHormigonCalc = function(container, materialId) {
             <div class="eh-param-block" data-param-type="vert">
                 <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--text-main); margin-top: 1.25rem; margin-bottom: 0.75rem;">Parámetros Estructura vertical</h3>
                 <div class="dynamic-grid">
-                    <div class="form-group"><label class="form-label">Nº Plantas con pilares</label><input type="number" id="eh-vert-floors" class="form-control" value="${data.vert_floors}"></div>
-                    <div class="form-group"><label class="form-label">Pilares totales</label><input type="number" id="eh-vert-elements" class="form-control" value="${data.vert_elements}"></div>
-                    <div class="form-group"><label class="form-label">Volumen pilares (m³)</label><input type="number" id="eh-vert-volume" class="form-control" value="${data.vert_volume}"></div>
+                    <div class="form-group"><label class="form-label">Nº Plantas con pilares</label><input type="number" id="eh-vert-floors" class="form-control" value="${escHtml(data.vert_floors)}"></div>
+                    <div class="form-group"><label class="form-label">Pilares totales</label><input type="number" id="eh-vert-elements" class="form-control" value="${escHtml(data.vert_elements)}"></div>
+                    <div class="form-group"><label class="form-label">Volumen pilares (m³)</label><input type="number" id="eh-vert-volume" class="form-control" value="${escHtml(data.vert_volume)}"></div>
                 </div>
                 <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">*Lotes verticales: se limitan a 1 planta. UIs: máx 10 soportes o 100m³.</p>
             </div>
@@ -89,9 +89,9 @@ window.renderEjecHormigonCalc = function(container, materialId) {
             <div class="eh-param-block" data-param-type="horiz">
                 <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--text-main); margin-top: 1.25rem; margin-bottom: 0.75rem;">Parámetros Estructura horizontal</h3>
                 <div class="dynamic-grid">
-                    <div class="form-group"><label class="form-label">Nº Plantas forjado</label><input type="number" id="eh-horiz-floors" class="form-control" value="${data.horiz_floors}"></div>
-                    <div class="form-group"><label class="form-label">Superficie total (m²)</label><input type="number" id="eh-horiz-area" class="form-control" value="${data.horiz_area}"></div>
-                    <div class="form-group"><label class="form-label">Volumen forjados (m³)</label><input type="number" id="eh-horiz-volume" class="form-control" value="${data.horiz_volume}"></div>
+                    <div class="form-group"><label class="form-label">Nº Plantas forjado</label><input type="number" id="eh-horiz-floors" class="form-control" value="${escHtml(data.horiz_floors)}"></div>
+                    <div class="form-group"><label class="form-label">Superficie total (m²)</label><input type="number" id="eh-horiz-area" class="form-control" value="${escHtml(data.horiz_area)}"></div>
+                    <div class="form-group"><label class="form-label">Volumen forjados (m³)</label><input type="number" id="eh-horiz-volume" class="form-control" value="${escHtml(data.horiz_volume)}"></div>
                 </div>
                 <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">*Lotes forjados: máx 250m² o 250m³ o 2 plantas. UIs: máx 250m².</p>
             </div>
@@ -300,15 +300,15 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                     </div>
                     <div style="display:flex; align-items:center; gap: 0.4rem;">
                         <label style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Lote:</label>
-                        <input type="text" class="eh-uilote form-control" data-id="${uiLoteId}" value="${data.checks[uiLoteId]}" placeholder="Ej. Lote 1" style="width: 110px; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
+                        <input type="text" class="eh-uilote form-control" data-id="${uiLoteId}" value="${escHtml(data.checks[uiLoteId])}" placeholder="Ej. Lote 1" style="width: 110px; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
                     </div>
                     <div style="display:flex; align-items:center; gap: 0.4rem; flex: 1; min-width: 220px;">
                         <label style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Unidad / Elemento:</label>
-                        <input type="text" class="eh-uiname form-control" data-id="${uiNameId}" value="${data.checks[uiNameId]}" placeholder="Ej. Zapatas Z1 a Z4 / Pilares PB / Forjado P1..." style="flex:1; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
+                        <input type="text" class="eh-uiname form-control" data-id="${uiNameId}" value="${escHtml(data.checks[uiNameId])}" placeholder="Ej. Zapatas Z1 a Z4 / Pilares PB / Forjado P1..." style="flex:1; padding: 0.25rem 0.5rem; font-size: 0.85rem;">
                     </div>
                     <div style="display:flex; align-items:center; gap: 0.4rem;">
                         <label style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Fecha:</label>
-                        <input type="date" class="eh-uidate form-control" data-id="${uiDateId}" value="${data.checks[uiDateId]}" style="width: 135px; padding: 0.25rem; font-weight: bold; border-color: var(--primary);" title="Fecha de control">
+                        <input type="date" class="eh-uidate form-control" data-id="${uiDateId}" value="${escHtml(data.checks[uiDateId])}" style="width: 135px; padding: 0.25rem; font-weight: bold; border-color: var(--primary);" title="Fecha de control">
                     </div>
                     <div style="display:flex; align-items:center; gap: 0.5rem;">
                         <button type="button" class="btn eh-btn-add-custom-point" data-type="${type}" data-ui="${i}" style="font-size:0.8rem; padding:0.25rem 0.6rem; border:1px dashed var(--primary); background:transparent; color:var(--primary); font-weight:600; cursor:pointer; border-radius:4px;" title="Añadir punto de control personalizado a esta UI">+ Añadir punto de control</button>
@@ -340,7 +340,7 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                             </select>
                         </td>
                         <td style="border:1px solid var(--border); padding:0.4rem;">
-                            <input type="date" class="eh-date form-control" data-id="${chkId}" value="${data.checks[chkId].date}" style="width:100%; padding:0.2rem; margin:0;">
+                            <input type="date" class="eh-date form-control" data-id="${chkId}" value="${escHtml(data.checks[chkId].date)}" style="width:100%; padding:0.2rem; margin:0;">
                         </td>
                     </tr>`;
                 });
@@ -372,7 +372,7 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                             </select>
                         </td>
                         <td style="border:1px solid var(--border); padding:0.4rem;">
-                            <input type="date" class="eh-date form-control" data-id="${custKey}" value="${chkObj.date || ''}" style="width:100%; padding:0.2rem; margin:0;">
+                            <input type="date" class="eh-date form-control" data-id="${custKey}" value="${escHtml(chkObj.date || '')}" style="width:100%; padding:0.2rem; margin:0;">
                         </td>
                     </tr>`;
                 });

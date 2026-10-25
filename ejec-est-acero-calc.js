@@ -109,8 +109,8 @@ window.renderEjecEstAceroCalc = function(container, materialId) {
 
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem; gap: 1rem;">
-                    <input type="text" class="form-control ea-name" data-idx="${index}" value="${inst.zonaName || ''}" placeholder="Identificación de la zona (Ej. Estructura Planta Baja)" style="font-weight:bold; font-size:1.1rem; border-color:var(--primary); flex: 1;">
-                    <input type="date" class="form-control ea-zonadate" data-idx="${index}" value="${inst.zonaDate || ''}" style="width: 150px; padding: 0.4rem; font-weight: bold; border-color: var(--primary);" title="Fecha del control">
+                    <input type="text" class="form-control ea-name" data-idx="${index}" value="${escHtml(inst.zonaName || '')}" placeholder="Identificación de la zona (Ej. Estructura Planta Baja)" style="font-weight:bold; font-size:1.1rem; border-color:var(--primary); flex: 1;">
+                    <input type="date" class="form-control ea-zonadate" data-idx="${index}" value="${escHtml(inst.zonaDate || '')}" style="width: 150px; padding: 0.4rem; font-weight: bold; border-color: var(--primary);" title="Fecha del control">
                     <button class="btn ea-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
             `;
@@ -162,13 +162,13 @@ window.renderEjecEstAceroCalc = function(container, materialId) {
 
                 let nameHtml = window.CustomControlsManager
                     ? window.CustomControlsManager.renderPointCell(inst, index, it, 'ea', materialId, '')
-                    : (it.isOtros ? `<input type="text" class="form-control ea-chk-name" data-idx="${index}" data-cid="${cId}" value="${cName}" placeholder="Otros (especificar)..." style="border:none; width:100%; padding:0.2rem; font-size:0.85rem; background:transparent;">` : cName);
+                    : (it.isOtros ? `<input type="text" class="form-control ea-chk-name" data-idx="${index}" data-cid="${cId}" value="${escHtml(cName)}" placeholder="Otros (especificar)..." style="border:none; width:100%; padding:0.2rem; font-size:0.85rem; background:transparent;">` : cName);
 
                 html += `
                     <tr class="${trClass}" style="border-bottom: 1px solid var(--border); ${displayStyle}">
                         <td style="padding:0.6rem;">${nameHtml}</td>
                         <td style="padding:0.4rem;">
-                            <input type="date" class="form-control ea-chk-date" data-idx="${index}" data-cid="${cId}" value="${cDate}" style="width:100%; padding:0.4rem; border:none; background:#f8fafc; font-size:0.85rem;">
+                            <input type="date" class="form-control ea-chk-date" data-idx="${index}" data-cid="${cId}" value="${escHtml(cDate)}" style="width:100%; padding:0.4rem; border:none; background:#f8fafc; font-size:0.85rem;">
                         </td>
                         <td style="padding:0.4rem;">
                             <select class="form-control ea-chk-sel" data-idx="${index}" data-cid="${cId}" style="padding:0.3rem; font-size:0.85rem; width:100%;">
@@ -179,7 +179,7 @@ window.renderEjecEstAceroCalc = function(container, materialId) {
                             </select>
                         </td>
                         <td style="padding:0.4rem;">
-                            <input type="text" class="form-control ea-chk-obs" data-idx="${index}" data-cid="${cId}" value="${cObs}" placeholder="Observaciones..." style="background:#f8fafc; border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
+                            <input type="text" class="form-control ea-chk-obs" data-idx="${index}" data-cid="${cId}" value="${escHtml(cObs)}" placeholder="Observaciones..." style="background:#f8fafc; border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
                         </td>
                     </tr>
                 `;

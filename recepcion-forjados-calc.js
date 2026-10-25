@@ -70,7 +70,7 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title rf-name" data-idx="${index}" value="${inst.customName}" placeholder="Identificador (Ej. Forjado Sanitario, Planta Baja...)">
+                        <input type="text" class="unified-title rf-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Identificador (Ej. Forjado Sanitario, Planta Baja...)">
                     </div>
                     <button class="btn rf-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
@@ -81,11 +81,11 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
                 <div class="dynamic-grid" style="margin-bottom: 1.5rem; gap: 1rem;">
                     <div>
                         <label class="form-label">Tipo de forjado prefabricado</label>
-                        <input type="text" class="form-control rf-type" data-idx="${index}" value="${inst.forjadoType}" placeholder="Ej. Vigueta y bovedilla, Placa alveolar...">
+                        <input type="text" class="form-control rf-type" data-idx="${index}" value="${escHtml(inst.forjadoType)}" placeholder="Ej. Vigueta y bovedilla, Placa alveolar...">
                     </div>
                     <div>
                         <label class="form-label">Canto requerido</label>
-                        <input type="text" class="form-control rf-canto" data-idx="${index}" value="${inst.canto}" placeholder="Ej. 25+5 cm, 30 cm...">
+                        <input type="text" class="form-control rf-canto" data-idx="${index}" value="${escHtml(inst.canto)}" placeholder="Ej. 25+5 cm, 30 cm...">
                     </div>
                 </div>
 
@@ -118,7 +118,7 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Reacción a fuego bovedillas EPS</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control rf-eps-val" data-idx="${index}" value="${inst.reacEps_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. B-s1,d0">
+                                    <input type="text" class="form-control rf-eps-val" data-idx="${index}" value="${escHtml(inst.reacEps_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. B-s1,d0">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="rf-eps-chk" data-idx="${index}" ${inst.reacEps_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -141,10 +141,10 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
                             <!-- Fila 4: Personalizable -->
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control rf-otra-ex" data-idx="${index}" value="${inst.otra_exigida || ''}" placeholder="Otra..." style="border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
+                                    <input type="text" class="form-control rf-otra-ex" data-idx="${index}" value="${escHtml(inst.otra_exigida || '')}" placeholder="Otra..." style="border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
                                 </td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control rf-otra-val" data-idx="${index}" value="${inst.otra_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;">
+                                    <input type="text" class="form-control rf-otra-val" data-idx="${index}" value="${escHtml(inst.otra_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="rf-otra-chk" data-idx="${index}" ${inst.otra_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -176,7 +176,7 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
 
                 let nameHtml = `<strong>${doc.name}</strong><br><span style="color:var(--text-muted); font-size:0.8rem;">${doc.desc || ''}</span>`;
                 if (doc.isOther) {
-                    nameHtml = `<input type="text" class="rf-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${inst.checks[doc.id].label || ''}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
+                    nameHtml = `<input type="text" class="rf-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${escHtml(inst.checks[doc.id].label || '')}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
                 }
 
                 html += `<tr>
@@ -193,7 +193,7 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
                         </select>
                     </td>
                     <td style="border:1px solid var(--border); padding:0.4rem;">
-                        <input type="date" class="rf-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date}" style="width:100%; padding:0.2rem; margin:0;">
+                        <input type="date" class="rf-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date)}" style="width:100%; padding:0.2rem; margin:0;">
                     </td>
                 </tr>`;
             });

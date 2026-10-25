@@ -134,10 +134,10 @@ window.renderEjecPavimentosCalc = (container, materialId) => {
             
             <div style="margin-top: 2rem; border-top: 2px solid var(--border); padding-top: 1rem;">
                 <h4 style="font-size: 0.95rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-main);">Observaciones generales</h4>
-                <textarea id="ep-obs" class="form-control" style="width:100%; min-height:80px; resize:vertical;">${data.observaciones || ''}</textarea>
+                <textarea id="ep-obs" class="form-control" style="width:100%; min-height:80px; resize:vertical;">${escHtml(data.observaciones || '')}</textarea>
                 
                 <h4 style="font-size: 0.95rem; font-weight: bold; margin-bottom: 0.5rem; margin-top: 1rem; color: var(--text-main);">Laboratorios intervinientes / Entidades de control</h4>
-                <textarea id="ep-lab" class="form-control" style="width:100%; min-height:60px; resize:vertical;">${data.laboratorios || ''}</textarea>
+                <textarea id="ep-lab" class="form-control" style="width:100%; min-height:60px; resize:vertical;">${escHtml(data.laboratorios || '')}</textarea>
             </div>
         </div>
     `;
@@ -196,8 +196,8 @@ window.renderEjecPavimentosCalc = (container, materialId) => {
 
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; gap: 1rem;">
-                    <input type="text" class="form-control ep-name" data-idx="${index}" value="${inst.customName}" placeholder="Identificador..." style="font-weight:bold; font-size:1.1rem; border-color:var(--primary); flex: 1;">
-                    <input type="date" class="form-control ep-zonadate" data-idx="${index}" value="${inst.zonaDate || ''}" style="width: 150px; padding: 0.4rem; font-weight: bold; border-color: var(--primary);" title="Fecha del control">
+                    <input type="text" class="form-control ep-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Identificador..." style="font-weight:bold; font-size:1.1rem; border-color:var(--primary); flex: 1;">
+                    <input type="date" class="form-control ep-zonadate" data-idx="${index}" value="${escHtml(inst.zonaDate || '')}" style="width: 150px; padding: 0.4rem; font-weight: bold; border-color: var(--primary);" title="Fecha del control">
                     <button class="btn ep-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
             `;
@@ -206,7 +206,7 @@ window.renderEjecPavimentosCalc = (container, materialId) => {
                 <div class="dynamic-grid" style="margin-bottom: 1.5rem; gap: 1rem;">
                     <div>
                         <label class="form-label">Ubicación / Nivel</label>
-                        <input type="text" class="form-control ep-ubic" data-idx="${index}" value="${inst.ubicacion || ''}" placeholder="Ej. Planta baja, terrazas...">
+                        <input type="text" class="form-control ep-ubic" data-idx="${index}" value="${escHtml(inst.ubicacion || '')}" placeholder="Ej. Planta baja, terrazas...">
                     </div>
                     <div>
                         <label class="form-label">Tipo de pavimento</label>
@@ -291,13 +291,13 @@ window.renderEjecPavimentosCalc = (container, materialId) => {
 
                     let nameHtml = window.CustomControlsManager
                         ? window.CustomControlsManager.renderPointCell(inst, index, it, 'ep', materialId, inst.tipo)
-                        : (it.isOtros ? `<input type="text" class="form-control ep-chk-name" data-idx="${index}" data-cid="${cId}" value="${cName}" placeholder="Otros (especificar)..." style="border:none; width:100%; padding:0.2rem; font-size:0.85rem; background:transparent;">` : it.name);
+                        : (it.isOtros ? `<input type="text" class="form-control ep-chk-name" data-idx="${index}" data-cid="${cId}" value="${escHtml(cName)}" placeholder="Otros (especificar)..." style="border:none; width:100%; padding:0.2rem; font-size:0.85rem; background:transparent;">` : it.name);
 
                     html += `
                         <tr class="${trClass}" style="border-bottom: 1px solid var(--border); ${displayStyle}">
                             <td style="padding:0.6rem;">${nameHtml}</td>
                             <td style="padding:0.4rem;">
-                                <input type="date" class="form-control ep-chk-date" data-idx="${index}" data-cid="${cId}" value="${cDate}" style="padding:0.3rem; font-size:0.85rem; border:none; background:#f8fafc; width:100%;">
+                                <input type="date" class="form-control ep-chk-date" data-idx="${index}" data-cid="${cId}" value="${escHtml(cDate)}" style="padding:0.3rem; font-size:0.85rem; border:none; background:#f8fafc; width:100%;">
                             </td>
                             <td style="padding:0.4rem;">
                                 <select class="form-control ep-chk-sel" data-idx="${index}" data-cid="${cId}" style="padding:0.3rem; font-size:0.85rem; width:100%;">
@@ -308,7 +308,7 @@ window.renderEjecPavimentosCalc = (container, materialId) => {
                                 </select>
                             </td>
                             <td style="padding:0.4rem;">
-                                <input type="text" class="form-control ep-chk-obs" data-idx="${index}" data-cid="${cId}" value="${cObs}" placeholder="Observaciones..." style="background:#f8fafc; border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
+                                <input type="text" class="form-control ep-chk-obs" data-idx="${index}" data-cid="${cId}" value="${escHtml(cObs)}" placeholder="Observaciones..." style="background:#f8fafc; border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
                             </td>
                         </tr>
                     `;

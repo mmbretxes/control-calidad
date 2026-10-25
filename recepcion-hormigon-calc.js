@@ -82,7 +82,7 @@ window.renderRecepcionHormigonCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title rh-name" data-idx="${index}" value="${inst.customName}" placeholder="Nombre / Elemento destino (Ej. HA-25/B/20/XC2 Pilares)">
+                        <input type="text" class="unified-title rh-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Nombre / Elemento destino (Ej. HA-25/B/20/XC2 Pilares)">
                     </div>
                     <button class="btn rh-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
@@ -188,7 +188,7 @@ window.renderRecepcionHormigonCalc = function(container, materialId) {
 
                 let nameHtml = `<strong>${doc.name}</strong><br><span style="color:var(--text-muted); font-size:0.8rem;">${doc.desc}</span>`;
                 if (doc.isOther) {
-                    nameHtml = `<input type="text" class="rh-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${inst.checks[doc.id].label || ''}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
+                    nameHtml = `<input type="text" class="rh-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${escHtml(inst.checks[doc.id].label || '')}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
                 }
 
                 html += `<tr>
@@ -205,7 +205,7 @@ window.renderRecepcionHormigonCalc = function(container, materialId) {
                         </select>
                     </td>
                     <td style="border:1px solid var(--border); padding:0.4rem;">
-                        <input type="date" class="rh-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date || ''}" style="width:100%; padding:0.2rem; margin:0;">
+                        <input type="date" class="rh-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date || '')}" style="width:100%; padding:0.2rem; margin:0;">
                     </td>
                 </tr>`;
             });

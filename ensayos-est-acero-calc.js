@@ -277,7 +277,7 @@ window.renderEstAceroCalc = function(container, matId) {
         let html = '';
 
         data.ensayosEnd.forEach(ensayo => {
-            const options = tiposEnsayo.map(t => `<option value="${t}" ${ensayo.tipo === t ? 'selected' : ''}>${t || 'Seleccionar...'}</option>`).join('');
+            const options = tiposEnsayo.map(t => `<option value="${escHtml(t)}" ${ensayo.tipo === t ? 'selected' : ''}>${t || 'Seleccionar...'}</option>`).join('');
             
             html += `
             <div class="lote-card">
@@ -286,21 +286,21 @@ window.renderEstAceroCalc = function(container, matId) {
                     <button class="btn-delete" onclick="window.deleteEnsayoEnd(${ensayo.id})">Eliminar</button>
                 </div>
                 <div class="dynamic-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
-                    <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Lote / Referencia:</label><input type="text" class="form-control" value="${ensayo.referencia}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'referencia', this)"></div>
+                    <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Lote / Referencia:</label><input type="text" class="form-control" value="${escHtml(ensayo.referencia)}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'referencia', this)"></div>
                     <div class="form-group"><label class="form-label">Tipo de Ensayo:</label>
                         <select class="form-control" onchange="window.updateEnsayoEnd(${ensayo.id}, 'tipo', this)">
                             ${options}
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">Fecha:</label><input type="date" class="form-control" value="${ensayo.fecha}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'fecha', this)"></div>
-                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${ensayo.laboratorio}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'laboratorio', this)"></div>
+                    <div class="form-group"><label class="form-label">Fecha:</label><input type="date" class="form-control" value="${escHtml(ensayo.fecha)}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'fecha', this)"></div>
+                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${escHtml(ensayo.laboratorio)}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'laboratorio', this)"></div>
                     <div class="form-group" style="grid-column: 1 / -1; align-items:center;">
                         <label class="form-label">¿Resultado Correcto?</label>
                         <div style="flex:1; padding:10px; background:#f4f7fb;">
                             <input type="checkbox" ${ensayo.correcto ? 'checked' : ''} onchange="window.updateEnsayoEnd(${ensayo.id}, 'correcto', this)" style="width:20px; height:20px; cursor:pointer;">
                         </div>
                     </div>
-                    <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Observaciones:</label><input type="text" class="form-control" value="${ensayo.observaciones}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'observaciones', this)"></div>
+                    <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Observaciones:</label><input type="text" class="form-control" value="${escHtml(ensayo.observaciones)}" onchange="window.updateEnsayoEnd(${ensayo.id}, 'observaciones', this)"></div>
                 </div>
             </div>`;
         });

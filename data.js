@@ -1,3 +1,16 @@
+// Escapa texto para insertarlo con seguridad dentro de HTML (atributos value="", áreas de texto, celdas).
+// Evita que comillas, <, > o & escritos por el usuario corten o rompan los campos al redibujar o imprimir.
+function escHtml(v) {
+    if (v === undefined || v === null) return '';
+    return String(v)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+window.escHtml = escHtml;
+
 // Datos de los materiales (Plantillas extraídas de los Excel)
 const materialesTemplate = [
     {

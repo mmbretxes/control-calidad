@@ -339,7 +339,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: data.resistenciaCimentacion || '25',
                 distintivo: data.distintivoCimentacion || 'sin',
                 exposicion: data.exposicionCimentacion || 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.cimentaciones
             }];
         } else {
@@ -351,7 +351,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: '25',
                 distintivo: 'sin',
                 exposicion: 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.cimentaciones
             }];
         }
@@ -373,7 +373,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: data.resistenciaCompresion || '25',
                 distintivo: data.distintivoCompresion || 'sin',
                 exposicion: data.exposicionCompresion || 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.compresion
             }];
         } else {
@@ -387,7 +387,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: '25',
                 distintivo: 'sin',
                 exposicion: 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.compresion
             }];
         }
@@ -409,7 +409,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: data.resistenciaForjados || '25',
                 distintivo: data.distintivoForjados || 'sin',
                 exposicion: data.exposicionForjados || 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.forjados
             }];
         } else {
@@ -423,7 +423,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: '25',
                 distintivo: 'sin',
                 exposicion: 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.forjados
             }];
         }
@@ -445,7 +445,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: data.resistenciaLosasPav || '25',
                 distintivo: data.distintivoLosasPav || 'sin',
                 exposicion: data.exposicionLosasPav || 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.losaspav
             }];
         } else {
@@ -459,7 +459,7 @@ window.renderHormigonCalc = function(container, matId) {
                 resistencia: '25',
                 distintivo: 'sin',
                 exposicion: 'XC1',
-                amasadasPorLote: 3,
+                amasadasPorLote: '',
                 cuantiaAcero: DEFAULT_CUANTIAS.losaspav
             }];
         }
@@ -468,6 +468,12 @@ window.renderHormigonCalc = function(container, matId) {
             if (item.cuantiaAcero === undefined) item.cuantiaAcero = DEFAULT_CUANTIAS.losaspav;
         });
     }
+
+    // Migración: el antiguo valor por defecto (número 3, nunca escrito por el usuario,
+    // que siempre llega como texto desde el campo) pasa a "automático" (mínimo normativo)
+    ['cimentaciones', 'compresion', 'forjados', 'losaspav'].forEach(k => {
+        (data[k] || []).forEach(item => { if (item.amasadasPorLote === 3) item.amasadasPorLote = ''; });
+    });
 
     if (!data.lotesRotura) data.lotesRotura = [];
     if (!data.lotesAcero) data.lotesAcero = [];
@@ -497,7 +503,7 @@ window.renderHormigonCalc = function(container, matId) {
             resistencia: '25',
             distintivo: 'sin',
             exposicion: 'XC1',
-            amasadasPorLote: 3,
+            amasadasPorLote: '',
             cuantiaAcero: DEFAULT_CUANTIAS[catKey] !== undefined ? DEFAULT_CUANTIAS[catKey] : 100
         };
         if (catKey !== 'cimentaciones') {
@@ -532,14 +538,29 @@ window.renderHormigonCalc = function(container, matId) {
         const sem = parseFloat(item.tiempoSemanas) || 1;
         const resUser = parseFloat(item.resistencia) || 25;
         const dExpo = DATOS_EXPOSICION[item.exposicion] || DATOS_EXPOSICION['XC1'];
-        let amasadasPorLote = parseInt(item.amasadasPorLote);
-        if (isNaN(amasadasPorLote) || amasadasPorLote <= 0) amasadasPorLote = 3;
+        const conDistintivo = item.distintivo === 'con';
+
+        // Amasadas mínimas por lote (Tabla 57.5.4.1 Código Estructural):
+        // sin distintivo N ≥ 3; con distintivo oficialmente reconocido N = 1; fck ≥ 50 N/mm² además N ≥ 6
+        let nMin = conDistintivo ? 1 : 3;
+        if (resUser >= 50) nMin = Math.max(nMin, 6);
+        const nUser = parseInt(item.amasadasPorLote);
+        let amasadasPorLote = nMin;
+        let avisoN = '';
+        if (!isNaN(nUser) && nUser > 0) {
+            if (nUser >= nMin) {
+                amasadasPorLote = nUser;
+            } else {
+                avisoN = `<br><span class="warning">Amasadas por lote indicadas (${nUser}) inferiores al mínimo normativo (${nMin}); se aplica ${nMin}.</span>`;
+            }
+        }
 
         let nLot = 0;
         let crit = '';
-        let adv = (resUser < dExpo.resistencia_min) 
-            ? `<br><span class="warning">¡ADVERTENCIA! Resistencia seleccionada (${resUser} MPa) menor a la mínima exigida (${dExpo.resistencia_min} MPa) para ambiente ${item.exposicion}.</span>` 
+        let adv = (resUser < dExpo.resistencia_min)
+            ? `<br><span class="warning">¡ADVERTENCIA! Resistencia seleccionada (${resUser} MPa) menor a la mínima exigida (${dExpo.resistencia_min} MPa) para ambiente ${escHtml(item.exposicion)}.</span>`
             : '';
+        adv += avisoN;
 
         // Si NO hay volumen introducido o es 0, no se define ningún lote por defecto
         if (vol <= 0) {
@@ -555,20 +576,31 @@ window.renderHormigonCalc = function(container, matId) {
             };
         }
 
-        const lotVol = Math.ceil(vol / 100);
-        const lotTiempo = Math.max(Math.ceil(sem / 1), 1);
+        // Límites máximos de lote (Tabla 57.5.4.1 Código Estructural):
+        //   Cimentaciones: 100 m³ · 1 semana
+        //   Elementos a compresión: 100 m³ · 2 semanas · 500 m² · 2 plantas
+        //   Elementos a flexión (forjados, losas): 100 m³ · 2 semanas · 1000 m² · 2 plantas
+        // Con distintivo oficialmente reconocido los valores se multiplican por cinco,
+        // sin superar seis semanas de suministro.
+        const factor = conDistintivo ? 5 : 1;
+        const limVol = 100 * factor;
+        const limSem = Math.min((catKey === 'cimentaciones' ? 1 : 2) * factor, 6);
+        const lotVol = Math.ceil(vol / limVol);
+        const lotTiempo = Math.max(Math.ceil(sem / limSem), 1);
+        const txtDist = conDistintivo ? ' [con distintivo: límites ×5, máx. 6 semanas]' : '';
 
         if (catKey === 'cimentaciones') {
             nLot = Math.max(lotVol, lotTiempo, 1);
-            crit = `Vol: cada 100m³ (${lotVol}), Tiempo: 1 sem (${lotTiempo})`;
+            crit = `Vol: cada ${limVol}m³ (${lotVol}), Tiempo: cada ${limSem} sem (${lotTiempo})${txtDist}`;
         } else {
             const sup = parseFloat(item.superficie) || 0;
             const plt = parseFloat(item.plantas) || 0;
-            const divSup = catKey === 'compresion' ? 500 : 1000;
-            const lotSup = Math.ceil(sup / divSup);
-            const lotPlt = Math.ceil(plt / 2);
+            const limSup = (catKey === 'compresion' ? 500 : 1000) * factor;
+            const limPlt = 2 * factor;
+            const lotSup = Math.ceil(sup / limSup);
+            const lotPlt = Math.ceil(plt / limPlt);
             nLot = Math.max(lotSup, lotPlt, lotVol, lotTiempo, 1);
-            crit = `Sup: cada ${divSup}m² (${lotSup}), Plantas: cada 2 (${lotPlt}), Vol: cada 100m³ (${lotVol}), Tiempo: 1 sem (${lotTiempo})`;
+            crit = `Sup: cada ${limSup}m² (${lotSup}), Plantas: cada ${limPlt} (${lotPlt}), Vol: cada ${limVol}m³ (${lotVol}), Tiempo: cada ${limSem} sem (${lotTiempo})${txtDist}`;
         }
 
         const amasadasTotales = nLot * amasadasPorLote;
@@ -614,20 +646,20 @@ window.renderHormigonCalc = function(container, matId) {
 
             // Opciones de resistencia
             const resOptions = RESISTENCIA_VALORES.map(v => 
-                `<option value="${v}" ${item.resistencia == v ? 'selected' : ''}>${v}</option>`
+                `<option value="${escHtml(v)}" ${item.resistencia == v ? 'selected' : ''}>${v}</option>`
             ).join('');
 
             // Opciones de exposición
             const expoOptions = Object.keys(DATOS_EXPOSICION).map(exp => 
-                `<option value="${exp}" ${item.exposicion === exp ? 'selected' : ''}>${exp}</option>`
+                `<option value="${escHtml(exp)}" ${item.exposicion === exp ? 'selected' : ''}>${exp}</option>`
             ).join('');
 
             // Campos específicos para compresión, forjados, losaspav
             let extraFields = '';
             if (catKey !== 'cimentaciones') {
                 extraFields = `
-                    <div class="form-group"><label class="form-label">Superficie (m²):</label><input type="number" class="form-control" min="0" step="0.1" value="${item.superficie !== undefined ? item.superficie : ''}" placeholder="Ej: 300" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'superficie', this.value)"></div>
-                    <div class="form-group"><label class="form-label">Nº plantas:</label><input type="number" class="form-control" min="1" step="1" value="${item.plantas !== undefined ? item.plantas : ''}" placeholder="Ej: 3" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'plantas', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Superficie (m²):</label><input type="number" class="form-control" min="0" step="0.1" value="${escHtml(item.superficie !== undefined ? item.superficie : '')}" placeholder="Ej: 300" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'superficie', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Nº plantas:</label><input type="number" class="form-control" min="1" step="1" value="${escHtml(item.plantas !== undefined ? item.plantas : '')}" placeholder="Ej: 3" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'plantas', this.value)"></div>
                 `;
             }
 
@@ -658,14 +690,14 @@ window.renderHormigonCalc = function(container, matId) {
                 <div class="lote-header">
                     <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                         <span style="font-weight:700; color:#000; font-size:1.05em;">#${index + 1}</span>
-                        <input type="text" class="form-control" style="font-weight:bold; max-width:380px; padding:6px 10px;" value="${item.nombre || ''}" placeholder="Nombre / Descripción (Ej: HA-25 Zapatas)" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'nombre', this.value)">
+                        <input type="text" class="form-control" style="font-weight:bold; max-width:380px; padding:6px 10px;" value="${escHtml(item.nombre || '')}" placeholder="Nombre / Descripción (Ej: HA-25 Zapatas)" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'nombre', this.value)">
                     </div>
                     <button class="btn-delete" onclick="window.deleteTipoHormigon('${catKey}', ${item.id})">Eliminar tipo</button>
                 </div>
                 <div class="dynamic-grid">
-                    <div class="form-group"><label class="form-label">Volumen (m³):</label><input type="number" class="form-control" min="0" step="0.1" value="${item.volumen !== undefined ? item.volumen : ''}" placeholder="Ej: 50" title="Volumen total de hormigón en m³ para este tipo según proyecto" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'volumen', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Volumen (m³):</label><input type="number" class="form-control" min="0" step="0.1" value="${escHtml(item.volumen !== undefined ? item.volumen : '')}" placeholder="Ej: 50" title="Volumen total de hormigón en m³ para este tipo según proyecto" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'volumen', this.value)"></div>
                     ${extraFields}
-                    <div class="form-group"><label class="form-label">Tiempo (semanas):</label><input type="number" class="form-control" min="1" step="1" value="${item.tiempoSemanas || 1}" title="Tiempo previsto de hormigonado en semanas según planificación" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'tiempoSemanas', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Tiempo (semanas):</label><input type="number" class="form-control" min="1" step="1" value="${escHtml(item.tiempoSemanas || 1)}" title="Tiempo previsto de hormigonado en semanas según planificación" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'tiempoSemanas', this.value)"></div>
                     <div class="form-group"><label class="form-label">Resistencia (fck):</label>
                         <select class="form-control" title="Resistencia característica fck (MPa) a 28 días según RD 470/2021" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'resistencia', this.value)">
                             ${resOptions}
@@ -682,8 +714,8 @@ window.renderHormigonCalc = function(container, matId) {
                             ${expoOptions}
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">Amasadas por lote:</label><input type="number" class="form-control" min="1" step="1" value="${item.amasadasPorLote !== undefined ? item.amasadasPorLote : 3}" title="Amasadas de control por lote (mínimo 3 amasadas según Código Estructural)" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'amasadasPorLote', this.value)"></div>
-                    <div class="form-group"><label class="form-label">Cuantía acero (kg/m³):</label><input type="number" class="form-control" min="0" step="1" value="${item.cuantiaAcero !== undefined ? item.cuantiaAcero : (DEFAULT_CUANTIAS[catKey] || 100)}" placeholder="${DEFAULT_CUANTIAS[catKey] || 100}" title="Cuantía estimada de acero corrugado en kg por m³ de hormigón" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'cuantiaAcero', parseFloat(this.value) || 0)"></div>
+                    <div class="form-group"><label class="form-label">Amasadas por lote:</label><input type="number" class="form-control" min="1" step="1" value="${escHtml(item.amasadasPorLote !== undefined ? item.amasadasPorLote : '')}" placeholder="Auto (${calc.amasadasPorLote})" title="Amasadas de control por lote. Vacío = mínimo normativo (Tabla 57.5.4.1: 3 sin distintivo, 1 con distintivo, 6 si fck ≥ 50)" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'amasadasPorLote', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Cuantía acero (kg/m³):</label><input type="number" class="form-control" min="0" step="1" value="${escHtml(item.cuantiaAcero !== undefined ? item.cuantiaAcero : (DEFAULT_CUANTIAS[catKey] || 100))}" placeholder="${DEFAULT_CUANTIAS[catKey] || 100}" title="Cuantía estimada de acero corrugado en kg por m³ de hormigón" onchange="window.updateTipoHormigon('${catKey}', ${item.id}, 'cuantiaAcero', parseFloat(this.value) || 0)"></div>
                 </div>
                 <div class="info-section">
                     <div>A/C máx: <strong>${dExpo.ac_max.toFixed(2)}</strong></div>
@@ -762,7 +794,7 @@ window.renderHormigonCalc = function(container, matId) {
                     <td style="text-align:right;">${vol > 0 ? vol.toFixed(2) + ' m³' : '0.00 m³'}</td>
                     <td style="text-align:center;">
                         <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
-                            <input type="number" class="form-control" style="width:90px; text-align:right; font-weight:bold; border:1px solid #000; background:#fff; border-radius:0;" min="0" step="1" value="${cuantia}" onchange="window.updateCuantiaAcero('${cat.key}', ${item.id}, this.value)">
+                            <input type="number" class="form-control" style="width:90px; text-align:right; font-weight:bold; border:1px solid #000; background:#fff; border-radius:0;" min="0" step="1" value="${escHtml(cuantia)}" onchange="window.updateCuantiaAcero('${cat.key}', ${item.id}, this.value)">
                             <span style="font-size:0.85em; color:#000;">kg/m³</span>
                         </div>
                     </td>
@@ -1120,18 +1152,18 @@ window.renderHormigonCalc = function(container, matId) {
         }
         let html = '';
         data.lotesRotura.forEach(lote => {
-            const numAmasadasOptions = [3, 4, 5, 6, 7, 8, 9, 10, 15, 20].map(n => `<option value="${n}" ${lote.numAmasadas == n ? 'selected' : ''}>${n} amasadas</option>`).join('');
+            const numAmasadasOptions = [3, 4, 5, 6, 7, 8, 9, 10, 15, 20].map(n => `<option value="${escHtml(n)}" ${lote.numAmasadas == n ? 'selected' : ''}>${n} amasadas</option>`).join('');
             let extraFields = '';
             if (lote.caso === '1') {
-                extraFields = `<div class="form-group"><label class="form-label">Coef. cert. (δ*):</label><input type="number" class="form-control" step="0.001" value="${lote.coefVariacion || ''}" onchange="window.updateLoteRotura(${lote.id}, 'coefVariacion', this.value)"></div>`;
+                extraFields = `<div class="form-group"><label class="form-label">Coef. cert. (δ*):</label><input type="number" class="form-control" step="0.001" value="${escHtml(lote.coefVariacion || '')}" onchange="window.updateLoteRotura(${lote.id}, 'coefVariacion', this.value)"></div>`;
             } else if (lote.caso === '2') {
-                extraFields = `<div class="form-group"><label class="form-label">s35 (MPa):</label><input type="number" class="form-control" step="0.1" value="${lote.s35 || ''}" onchange="window.updateLoteRotura(${lote.id}, 's35', this.value)"></div>`;
+                extraFields = `<div class="form-group"><label class="form-label">s35 (MPa):</label><input type="number" class="form-control" step="0.1" value="${escHtml(lote.s35 || '')}" onchange="window.updateLoteRotura(${lote.id}, 's35', this.value)"></div>`;
             }
             let amasadasHtml = '';
             lote.amasadas.forEach((val, i) => {
                 amasadasHtml += `<div>
                     <label style="font-size:0.75rem; color:#1f2937; font-weight:600;">Amasada ${i+1}</label>
-                    <input type="number" step="0.1" value="${val}" title="Resistencia a compresión obtenida en probeta cilíndrica a 28 días (MPa)" onchange="window.updateAmasada(${lote.id}, ${i}, this.value)" style="width:100%; padding:4px 8px; border:1px solid #000; border-radius:4px; font-family:'Inter',sans-serif; font-size:0.8rem; background:#fff;">
+                    <input type="number" step="0.1" value="${escHtml(val)}" title="Resistencia a compresión obtenida en probeta cilíndrica a 28 días (MPa)" onchange="window.updateAmasada(${lote.id}, ${i}, this.value)" style="width:100%; padding:4px 8px; border:1px solid #000; border-radius:4px; font-family:'Inter',sans-serif; font-size:0.8rem; background:#fff;">
                 </div>`;
             });
             let resultadoHtml = '<div style="margin-top:6px; padding:6px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; font-size:0.75rem; color:#64748b;">Complete todos los datos para ver el resultado.</div>';
@@ -1159,8 +1191,8 @@ window.renderHormigonCalc = function(container, matId) {
                 </div>
                 <div class="dynamic-grid">
                     <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Referencia / Ubicación:</label>
-                        <input type="text" class="form-control" value="${lote.referencia || ''}" onchange="window.updateLoteRotura(${lote.id}, 'referencia', this.value)" placeholder="Ref" title="Referencia o identificación del albarán de hormigón" style="border-right:1px solid #000;">
-                        <input type="text" class="form-control" value="${lote.ubicacion || ''}" onchange="window.updateLoteRotura(${lote.id}, 'ubicacion', this.value)" placeholder="Ubicación" title="Elemento o zona estructural donde se ha colocado el hormigón">
+                        <input type="text" class="form-control" value="${escHtml(lote.referencia || '')}" onchange="window.updateLoteRotura(${lote.id}, 'referencia', this.value)" placeholder="Ref" title="Referencia o identificación del albarán de hormigón" style="border-right:1px solid #000;">
+                        <input type="text" class="form-control" value="${escHtml(lote.ubicacion || '')}" onchange="window.updateLoteRotura(${lote.id}, 'ubicacion', this.value)" placeholder="Ubicación" title="Elemento o zona estructural donde se ha colocado el hormigón">
                     </div>
                     <div class="form-group"><label class="form-label">Caso Control:</label>
                         <select class="form-control" title="Criterio de control y aceptación según RD 470/2021 (Art. 57.5)" onchange="window.updateLoteRotura(${lote.id}, 'caso', this.value)">
@@ -1169,13 +1201,13 @@ window.renderHormigonCalc = function(container, matId) {
                             <option value="3" ${lote.caso==='3'?'selected':''}>Caso 3: Sin Distintivo, ≤ 36 Amasadas (Art. 57.5.3.3)</option>
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">fck (MPa):</label><input type="number" class="form-control" value="${lote.fck || ''}" title="Resistencia característica fck (MPa) a 28 días" onchange="window.updateLoteRotura(${lote.id}, 'fck', this.value)"></div>
+                    <div class="form-group"><label class="form-label">fck (MPa):</label><input type="number" class="form-control" value="${escHtml(lote.fck || '')}" title="Resistencia característica fck (MPa) a 28 días" onchange="window.updateLoteRotura(${lote.id}, 'fck', this.value)"></div>
                     <div class="form-group"><label class="form-label">N (Amasadas):</label>
                         <select class="form-control" title="Número de amasadas controladas en este lote (mínimo 3 amasadas según Código Estructural)" onchange="window.updateLoteRotura(${lote.id}, 'numAmasadas', this.value)">
                             ${numAmasadasOptions}
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${lote.laboratorio || ''}" title="Nombre y acreditación del laboratorio de ensayos" onchange="window.updateLoteRotura(${lote.id}, 'laboratorio', this.value)" placeholder="Ej: Lab. Central"></div>
+                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${escHtml(lote.laboratorio || '')}" title="Nombre y acreditación del laboratorio de ensayos" onchange="window.updateLoteRotura(${lote.id}, 'laboratorio', this.value)" placeholder="Ej: Lab. Central"></div>
                     ${extraFields}
                 </div>
                 <div style="margin-top:6px;">
@@ -1225,7 +1257,7 @@ window.renderHormigonCalc = function(container, matId) {
         }
         let html = '';
         const opts = ['no procede', 'conforme', 'no conforme'];
-        const buildOptions = (val) => opts.map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o.toUpperCase()}</option>`).join('');
+        const buildOptions = (val) => opts.map(o => `<option value="${escHtml(o)}" ${val === o ? 'selected' : ''}>${o.toUpperCase()}</option>`).join('');
 
         data.lotesAcero.forEach(lote => {
             html += `
@@ -1236,12 +1268,12 @@ window.renderHormigonCalc = function(container, matId) {
                 </div>
                 <div class="dynamic-grid">
                     <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Referencia / Ubicación:</label>
-                        <input type="text" class="form-control" value="${lote.referencia || ''}" onchange="window.updateLoteAcero(${lote.id}, 'referencia', this.value)" placeholder="Ref" style="border-right:1px solid #000;">
-                        <input type="text" class="form-control" value="${lote.ubicacion || ''}" onchange="window.updateLoteAcero(${lote.id}, 'ubicacion', this.value)" placeholder="Ubicación">
+                        <input type="text" class="form-control" value="${escHtml(lote.referencia || '')}" onchange="window.updateLoteAcero(${lote.id}, 'referencia', this.value)" placeholder="Ref" style="border-right:1px solid #000;">
+                        <input type="text" class="form-control" value="${escHtml(lote.ubicacion || '')}" onchange="window.updateLoteAcero(${lote.id}, 'ubicacion', this.value)" placeholder="Ubicación">
                     </div>
-                    <div class="form-group"><label class="form-label">Diámetro:</label><input type="text" class="form-control" value="${lote.diametro || ''}" onchange="window.updateLoteAcero(${lote.id}, 'diametro', this.value)" placeholder="Ej: Ø 16"></div>
-                    <div class="form-group"><label class="form-label">Fabricante:</label><input type="text" class="form-control" value="${lote.fabricante || ''}" onchange="window.updateLoteAcero(${lote.id}, 'fabricante', this.value)"></div>
-                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${lote.laboratorio || ''}" onchange="window.updateLoteAcero(${lote.id}, 'laboratorio', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Diámetro:</label><input type="text" class="form-control" value="${escHtml(lote.diametro || '')}" onchange="window.updateLoteAcero(${lote.id}, 'diametro', this.value)" placeholder="Ej: Ø 16"></div>
+                    <div class="form-group"><label class="form-label">Fabricante:</label><input type="text" class="form-control" value="${escHtml(lote.fabricante || '')}" onchange="window.updateLoteAcero(${lote.id}, 'fabricante', this.value)"></div>
+                    <div class="form-group"><label class="form-label">Laboratorio:</label><input type="text" class="form-control" value="${escHtml(lote.laboratorio || '')}" onchange="window.updateLoteAcero(${lote.id}, 'laboratorio', this.value)"></div>
                 </div>
                 <div style="margin-top:6px; padding: 6px 10px; background: #fff; border: 1px solid #000; border-radius: 0;">
                     <h5 style="margin:0 0 4px 0; font-size:0.8rem;">Ensayos</h5>

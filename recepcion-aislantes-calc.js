@@ -62,7 +62,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
             
             <div style="margin-top: 2rem; border-top: 2px solid var(--border); padding-top: 1rem;">
                 <h4 class="unified-title">Observaciones generales</h4>
-                <textarea id="ra-obs" class="form-control" style="width:100%; min-height:80px; resize:vertical;" placeholder="Observaciones generales sobre la recepción de aislantes...">${data.observaciones || ''}</textarea>
+                <textarea id="ra-obs" class="form-control" style="width:100%; min-height:80px; resize:vertical;" placeholder="Observaciones generales sobre la recepción de aislantes...">${escHtml(data.observaciones || '')}</textarea>
             </div>
         </div>
     `;
@@ -113,7 +113,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; gap: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title ra-name" data-idx="${index}" value="${inst.customName}" placeholder="Identificador (Ej. Lana de roca en fachada, XPS en cubierta...)">
+                        <input type="text" class="unified-title ra-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Identificador (Ej. Lana de roca en fachada, XPS en cubierta...)">
                     </div>
                     <button class="btn ra-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
@@ -124,11 +124,11 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                 <div class="dynamic-grid" style="margin-bottom: 1.5rem; gap: 1rem;">
                     <div>
                         <label class="form-label">Tipo de aislante térmico</label>
-                        <input type="text" class="form-control ra-tipo" data-idx="${index}" value="${inst.tipoAislante || ''}" placeholder="Ej. Lana mineral, Poliestireno extruido (XPS), Poliestireno expandido (EPS)...">
+                        <input type="text" class="form-control ra-tipo" data-idx="${index}" value="${escHtml(inst.tipoAislante || '')}" placeholder="Ej. Lana mineral, Poliestireno extruido (XPS), Poliestireno expandido (EPS)...">
                     </div>
                     <div>
                         <label class="form-label">Ubicación en obra</label>
-                        <input type="text" class="form-control ra-ubic" data-idx="${index}" value="${inst.ubicacion || ''}" placeholder="Ej. Fachada SATE, Cubierta plana, Suelo radiante...">
+                        <input type="text" class="form-control ra-ubic" data-idx="${index}" value="${escHtml(inst.ubicacion || '')}" placeholder="Ej. Fachada SATE, Cubierta plana, Suelo radiante...">
                     </div>
                 </div>
 
@@ -147,7 +147,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Resistencia térmica (m²K/W)</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-res-termica-val" data-idx="${index}" value="${inst.res_termica_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 2,50 m²K/W">
+                                    <input type="text" class="form-control ra-res-termica-val" data-idx="${index}" value="${escHtml(inst.res_termica_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 2,50 m²K/W">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-res-termica-chk" data-idx="${index}" ${inst.res_termica_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -157,7 +157,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Espesor (mm / m)</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-espesor-val" data-idx="${index}" value="${inst.espesor_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. 80 mm">
+                                    <input type="text" class="form-control ra-espesor-val" data-idx="${index}" value="${escHtml(inst.espesor_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. 80 mm">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-espesor-chk" data-idx="${index}" ${inst.espesor_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -167,7 +167,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Conductividad térmica λ (W/mK)</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-cond-termica-val" data-idx="${index}" value="${inst.cond_termica_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≤ 0,035 W/mK">
+                                    <input type="text" class="form-control ra-cond-termica-val" data-idx="${index}" value="${escHtml(inst.cond_termica_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≤ 0,035 W/mK">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-cond-termica-chk" data-idx="${index}" ${inst.cond_termica_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -177,7 +177,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Reacción al fuego</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-reaccion-fuego-val" data-idx="${index}" value="${inst.reaccion_fuego_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. A1, B-s1,d0, E...">
+                                    <input type="text" class="form-control ra-reaccion-fuego-val" data-idx="${index}" value="${escHtml(inst.reaccion_fuego_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. A1, B-s1,d0, E...">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-reaccion-fuego-chk" data-idx="${index}" ${inst.reaccion_fuego_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -187,7 +187,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Resistencia flujo del aire (kPa·s/m²)</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-res-flujo-val" data-idx="${index}" value="${inst.res_flujo_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 5 kPa·s/m²">
+                                    <input type="text" class="form-control ra-res-flujo-val" data-idx="${index}" value="${escHtml(inst.res_flujo_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 5 kPa·s/m²">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-res-flujo-chk" data-idx="${index}" ${inst.res_flujo_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -197,7 +197,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.6rem;">Resistencia a compresión (kPa)</td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-res-compresion-val" data-idx="${index}" value="${inst.res_compresion_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 300 kPa">
+                                    <input type="text" class="form-control ra-res-compresion-val" data-idx="${index}" value="${escHtml(inst.res_compresion_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Ej. ≥ 300 kPa">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-res-compresion-chk" data-idx="${index}" ${inst.res_compresion_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -220,10 +220,10 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                             <!-- Otra característica -->
                             <tr style="border-bottom: 1px solid var(--border);">
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-otra-ex" data-idx="${index}" value="${inst.otra_exigida || ''}" placeholder="Otra (especificar)..." style="border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
+                                    <input type="text" class="form-control ra-otra-ex" data-idx="${index}" value="${escHtml(inst.otra_exigida || '')}" placeholder="Otra (especificar)..." style="border:none; width:100%; padding:0.4rem; font-size:0.85rem;">
                                 </td>
                                 <td style="padding:0.4rem;">
-                                    <input type="text" class="form-control ra-otra-val" data-idx="${index}" value="${inst.otra_val || ''}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Valor requerido">
+                                    <input type="text" class="form-control ra-otra-val" data-idx="${index}" value="${escHtml(inst.otra_val || '')}" style="background:#f8fafc; border:none; width:100%; padding:0.4rem;" placeholder="Valor requerido">
                                 </td>
                                 <td style="padding:0.6rem; text-align:center;">
                                     <input type="checkbox" class="ra-otra-chk" data-idx="${index}" ${inst.otra_chk ? 'checked' : ''} style="width:1.2rem; height:1.2rem; cursor:pointer;">
@@ -255,7 +255,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
 
                 let nameHtml = `<strong>${doc.name}</strong><br><span style="color:var(--text-muted); font-size:0.8rem;">${doc.desc || ''}</span>`;
                 if (doc.isOther) {
-                    nameHtml = `<input type="text" class="ra-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${inst.checks[doc.id].label || ''}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
+                    nameHtml = `<input type="text" class="ra-custom-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otros (especificar)..." value="${escHtml(inst.checks[doc.id].label || '')}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
                 }
 
                 html += `<tr>
@@ -272,7 +272,7 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
                         </select>
                     </td>
                     <td style="border:1px solid var(--border); padding:0.4rem;">
-                        <input type="date" class="ra-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date}" style="width:100%; padding:0.2rem; margin:0;">
+                        <input type="date" class="ra-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date)}" style="width:100%; padding:0.2rem; margin:0;">
                     </td>
                 </tr>`;
             });

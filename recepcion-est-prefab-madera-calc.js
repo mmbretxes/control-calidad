@@ -59,12 +59,12 @@ window.renderRecepcionEstPrefabMaderaCalc = function(container, materialId) {
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
                     <div style="flex:1;">
-                        <input type="text" class="unified-title repm-name" data-idx="${index}" value="${inst.customName}" placeholder="Identificación producto (Ej. Madera CLT)">
+                        <input type="text" class="unified-title repm-name" data-idx="${index}" value="${escHtml(inst.customName)}" placeholder="Identificación producto (Ej. Madera CLT)">
                     </div>
                     <button class="btn repm-btn-remove" data-idx="${index}" style="margin-left:1rem; color: #dc2626; border: 1px solid #dc2626; background:transparent;">Eliminar</button>
                 </div>
                 <div class="dynamic-grid" style="margin-bottom: 1.5rem; gap: 1rem;">
-                    <div><label class="form-label">Ubicación</label><input type="text" class="form-control repm-ubicacion" data-idx="${index}" value="${inst.ubicacion || ''}" placeholder="Ej. Cubierta principal"></div>
+                    <div><label class="form-label">Ubicación</label><input type="text" class="form-control repm-ubicacion" data-idx="${index}" value="${escHtml(inst.ubicacion || '')}" placeholder="Ej. Cubierta principal"></div>
                 </div>
                 <h4 class="unified-title" style="margin-top:1rem; font-size:1rem;">Relación de Documentación Exigible</h4>
                 <div style="overflow-x:auto;"><table style="width:100%; border-collapse: collapse; font-size:0.85rem; min-width: 600px; background: white;">
@@ -79,7 +79,7 @@ window.renderRecepcionEstPrefabMaderaCalc = function(container, materialId) {
                 if(!inst.checks[doc.id]) inst.checks[doc.id] = { label: doc.name, status: "", date: "" };
                 let phaseColor = doc.phase === "Pre-Suministro" ? "#b45309" : (doc.phase === "Durante Suministro" ? "#0f766e" : "#1d4ed8");
                 let nameHtml = `<strong>${doc.name}</strong><br><span style="color:var(--text-muted); font-size:0.8rem;">${doc.desc}</span>`;
-                if (doc.custom) nameHtml = `<input type="text" class="repm-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otra documentación..." value="${inst.checks[doc.id].label === 'Otros' ? '' : inst.checks[doc.id].label}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
+                if (doc.custom) nameHtml = `<input type="text" class="repm-label form-control" data-uid="${inst.uid}" data-docid="${doc.id}" placeholder="Otra documentación..." value="${escHtml(inst.checks[doc.id].label === 'Otros' ? '' : inst.checks[doc.id].label)}" style="width:100%; padding:0.2rem; margin:0; font-size: 0.85rem; border:none; background:transparent; font-weight:600;">`;
                 html += `<tr>
                     <td style="border:1px solid var(--border); padding:0.4rem; text-align:center; font-weight:bold; color:${phaseColor};">${doc.phase}</td>
                     <td style="border:1px solid var(--border); padding:0.4rem;">${nameHtml}</td>
@@ -91,14 +91,14 @@ window.renderRecepcionEstPrefabMaderaCalc = function(container, materialId) {
                             <option value="No procede" ${inst.checks[doc.id].status === 'No procede' ? 'selected' : ''}>No procede</option>
                         </select>
                     </td>
-                    <td style="border:1px solid var(--border); padding:0.4rem;"><input type="date" class="repm-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${inst.checks[doc.id].date || ''}" style="width:100%; padding:0.2rem; margin:0;"></td>
+                    <td style="border:1px solid var(--border); padding:0.4rem;"><input type="date" class="repm-date form-control" data-uid="${inst.uid}" data-docid="${doc.id}" value="${escHtml(inst.checks[doc.id].date || '')}" style="width:100%; padding:0.2rem; margin:0;"></td>
                 </tr>`;
             });
             html += `</tbody></table></div>
                 <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                     <div class="form-group" style="display:flex; border:1px solid var(--border); background:white;">
                         <div class="form-label" style="width:150px; background:#f1f5f9; padding:0.75rem; border-right:1px solid var(--border); font-weight:600; font-size:0.85rem;">Observaciones</div>
-                        <textarea class="form-control repm-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${inst.observaciones || ''}</textarea>
+                        <textarea class="form-control repm-observaciones" data-idx="${index}" style="flex:1; border:none; padding:0.75rem; min-height:60px; resize:vertical; font-size:0.85rem;">${escHtml(inst.observaciones || '')}</textarea>
                     </div>
                 </div>`;
             block.innerHTML = html;
