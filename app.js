@@ -2892,6 +2892,31 @@ function showFilesModal(chapterName, fileHandles) {
 // Iniciar aplicación
 showScreen('home');
 
+// Recalcular el color de todos los resultados de las fichas. Hace falta porque algunos
+// cambios no los hace el usuario a mano (p. ej. "Todo Correcto hoy", deshacer o redibujar
+// una zona) y el navegador no avisa de esos cambios.
+let refrescoColoresPendiente = false;
+function refrescarColoresResultados() {
+    if (refrescoColoresPendiente) return;
+    refrescoColoresPendiente = true;
+    requestAnimationFrame(() => {
+        refrescoColoresPendiente = false;
+        const cont = document.getElementById('materials-content');
+        if (cont) cont.querySelectorAll('select').forEach(updateSelectStatusAttribute);
+    });
+}
+// Tras cualquier botón pulsado en las fichas (se ejecuta después de las acciones de cada ficha)
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.closest && e.target.closest('#materials-content button')) refrescarColoresResultados();
+});
+// Cuando una ficha redibuja sus zonas o suministros
+(function () {
+    const cont = document.getElementById('materials-content');
+    if (cont && window.MutationObserver) {
+        new MutationObserver(refrescarColoresResultados).observe(cont, { childList: true, subtree: true });
+    }
+})();
+
 // ProgramadorJS: Reactividad y semántica visual inmediata para todos los programas
 function updateSelectStatusAttribute(selectEl) {
     if (!selectEl) return;
