@@ -401,7 +401,7 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                             backup.checks[customId] = data.checks[customId] ? { ...data.checks[customId] } : { label: "", status: "", date: "" };
                             fillBtn._backup = backup;
 
-                            const today = new Date().toISOString().split('T')[0];
+                            const today = localToday();
                             
                             // Si la fecha general de la UI está vacía, rellenarla con la fecha de hoy
                             if (!data.checks[uiDateId]) {
@@ -582,7 +582,7 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                 data.uisCreated[type]++;
                 const newIdx = data.uisCreated[type];
                 const newDateId = `${type}_ui${newIdx}_date`;
-                data.checks[newDateId] = new Date().toISOString().split('T')[0];
+                data.checks[newDateId] = localToday();
                 calculateAndRender();
             };
             btnContainer.appendChild(addBtn);

@@ -355,7 +355,7 @@ document.body.addEventListener('click', function(e) {
                     if (currentData && currentData.instances && currentData.instances.length > 0) {
                         const newInst = currentData.instances[currentData.instances.length - 1];
                         if (!newInst.zonaDate) {
-                            newInst.zonaDate = new Date().toISOString().split('T')[0];
+                            newInst.zonaDate = localToday();
                             if (template.customRenderer && typeof window[template.customRenderer] === 'function') {
                                 const section = document.getElementById('section-' + currentMatId);
                                 window[template.customRenderer](section, currentMatId);
@@ -606,46 +606,6 @@ async function saveFilesToChapter(files, mat) {
 
 
 
-async function handleExploreClick(e, mat) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!projectDirHandle) {
-        try {
-            projectDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        } catch (err) {
-            return;
-        }
-    }
-    
-    try {
-        let catFolderName = "";
-        if (mat.category === 'recepcion') catFolderName = 'Control de recepción';
-        else if (mat.category === 'ejecucion') catFolderName = 'Control de ejecución';
-        else if (mat.category === 'ensayos') catFolderName = 'Ensayos y pruebas de servicio';
-        
-        const catHandle = await projectDirHandle.getDirectoryHandle(catFolderName, { create: true });
-        const safeName = mat.name.replace(/[\\/:*?"<>|]/g, '-');
-        const chapterHandle = await catHandle.getDirectoryHandle(safeName, { create: true });
-        
-        let fileList = [];
-        for await (const entry of chapterHandle.values()) {
-            if (entry.kind === 'file') {
-                fileList.push(entry.name);
-            }
-        }
-        
-        if (fileList.length === 0) {
-            alert(`La carpeta "${safeName}" está vacía.`);
-        } else {
-            alert(`Archivos en "${safeName}":\n\n` + fileList.join('\n'));
-        }
-    } catch (err) {
-        console.error("Error explorando carpeta:", err);
-        alert("Error al explorar la carpeta: " + err.message);
-    }
-}
-
 // Generador de Formularios
 function renderControlForms() {
     try {
@@ -696,334 +656,7 @@ function renderControlForms() {
         if (template.customRenderer && typeof window[template.customRenderer] === 'function') {
             window[template.customRenderer](section, matId);
         } else if (template.sections) {
-            // Renderizar secciones de la plantilla
-            template.sections.forEach((sec, secIdx) => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            
-            if (secIdx === 0) {
-                const mainTitle = document.createElement('h2');
-                let prefix = "Control de Recepción: ";
-                if (template.category === 'ejecucion') prefix = "Control de Ejecución: ";
-                else if (template.category === 'ensayos') prefix = "Control de Ensayos: ";
-                mainTitle.textContent = prefix + template.name;
-                card.appendChild(mainTitle);
-            }
-
-            if (sec.title) {
-                const isRedundant = secIdx === 0 && (
-                    template.category === 'ensayos' ||
-                    sec.title.toLowerCase().trim() === template.name.toLowerCase().trim()
-                );
-                if (!isRedundant) {
-                    const title = document.createElement('h2');
-                    title.textContent = sec.title;
-                    card.appendChild(title);
-                }
-            }
-
-            if (sec.type === 'header' || sec.type === 'footer') {
-                const grid = document.createElement('div');
-                grid.className = sec.type === 'header' ? 'dynamic-grid' : '';
-                
-                sec.fields.forEach(f => {
-                    const group = document.createElement('div');
-                    group.className = 'form-group';
-                    group.innerHTML = `<label class="form-label">${f.label}</label>`;
-                    
-                    if (f.type === 'textarea') {
-                        const input = document.createElement('textarea');
-                        input.className = 'form-control';
-                        input.value = data[f.id] || '';
-                        input.onchange = (e) => data[f.id] = e.target.value;
-                        group.appendChild(input);
-                    } else {
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'form-control';
-                        input.value = data[f.id] || '';
-                        input.onchange = (e) => data[f.id] = e.target.value;
-                        group.appendChild(input);
-                    }
-                    grid.appendChild(group);
-                });
-                card.appendChild(grid);
-            } 
-            else if (sec.type === 'grid') {
-                 const grid = document.createElement('div');
-                 grid.className = 'dynamic-grid';
-                 sec.fields.forEach(f => {
-                    const group = document.createElement('div');
-                    group.className = 'form-group';
-                    group.innerHTML = `<label class="form-label">${f.label}</label>`;
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'form-control';
-                    input.value = data[f.id] || '';
-                    input.onchange = (e) => data[f.id] = e.target.value;
-                    group.appendChild(input);
-                    grid.appendChild(group);
-                 });
-                 card.appendChild(grid);
-            }
-            else if (sec.type === 'table') {
-                const tableCont = document.createElement('div');
-                tableCont.className = 'table-container';
-                const table = document.createElement('table');
-                
-                // Cabecera
-                const thead = document.createElement('thead');
-                thead.innerHTML = `<tr>${sec.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
-                table.appendChild(thead);
-                
-                // Cuerpo
-                const tbody = document.createElement('tbody');
-                let currentGroup = "";
-
-                sec.rows.forEach(r => {
-                    // Render Group Header si aplica
-                    if (r.group && r.group !== currentGroup) {
-                        currentGroup = r.group;
-                        const trGroup = document.createElement('tr');
-                        trGroup.className = "group-row";
-                        trGroup.innerHTML = `<td colspan="${sec.columns.length}">${currentGroup}</td>`;
-                        tbody.appendChild(trGroup);
-                    }
-
-                    const tr = document.createElement('tr');
-                    
-                    // Columna 1 (Label o Input)
-                    const td1 = document.createElement('td');
-                    if (r.customLabel) {
-                        const labelInput = document.createElement('input');
-                        labelInput.type = 'text';
-                        labelInput.placeholder = 'Especificar...';
-                        labelInput.value = data[r.id + '_label'] || '';
-                        labelInput.onchange = (e) => data[r.id + '_label'] = e.target.value;
-                        td1.appendChild(labelInput);
-                    } else {
-                        td1.textContent = r.label;
-                    }
-                    tr.appendChild(td1);
-
-                    // Resto de columnas (según el tipo, normalmente inputs de texto, excepto Verificado/Entregado que pueden ser checkbox)
-                    for (let i = 1; i < sec.columns.length; i++) {
-                        const colName = sec.columns[i];
-                        const td = document.createElement('td');
-                        
-                        if (colName === "Exigida" || colName === "Proyecto") {
-                            // Menú desplegable para Exigida / Proyecto
-                            const select = document.createElement('select');
-                            const currentVal = data[r.id + '_' + i] || '';
-                            select.className = 'form-control' + (currentVal === '' ? ' empty-select' : '');
-                            const opciones = ["", "Sí", "No", "No procede"];
-                            opciones.forEach(op => {
-                                const opt = document.createElement('option');
-                                opt.value = op;
-                                opt.textContent = op === "" ? "Seleccionar..." : op;
-                                select.appendChild(opt);
-                            });
-                            select.value = currentVal;
-                            select.onchange = (e) => {
-                                data[r.id + '_' + i] = e.target.value;
-                                if (e.target.value === '') e.target.classList.add('empty-select');
-                                else e.target.classList.remove('empty-select');
-                            };
-                            td.appendChild(select);
-                        } else if (colName === "Verificado" || colName === "Entregado") {
-                            // Checkbox para verificaciones finales
-                            const chk = document.createElement('input');
-                            chk.type = 'checkbox';
-                            chk.className = 'form-checkbox';
-                            chk.checked = data[r.id + '_' + i] === true;
-                            chk.onchange = (e) => data[r.id + '_' + i] = e.target.checked;
-                            
-                            // Contenedor centrado
-                            const div = document.createElement('div');
-                            div.style.textAlign = 'center';
-                            div.appendChild(chk);
-                            td.appendChild(div);
-                        } else {
-                            if (r.inputType === 'select') {
-                                const select = document.createElement('select');
-                                const currentVal = data[r.id + '_' + i] || '';
-                                select.className = 'form-control' + (currentVal === '' ? ' empty-select' : '');
-                                const opciones = r.options || ["", "Sí", "No"];
-                                opciones.forEach(op => {
-                                    const opt = document.createElement('option');
-                                    opt.value = op;
-                                    opt.textContent = op === "" ? "Seleccionar..." : op;
-                                    select.appendChild(opt);
-                                });
-                                select.value = currentVal;
-                                select.onchange = (e) => {
-                                    data[r.id + '_' + i] = e.target.value;
-                                    if (e.target.value === '') e.target.classList.add('empty-select');
-                                    else e.target.classList.remove('empty-select');
-                                };
-                                td.appendChild(select);
-                            } else {
-                                // Input texto para Valores
-                                const txt = document.createElement('input');
-                                txt.type = 'text';
-                                txt.value = data[r.id + '_' + i] || '';
-                                txt.onchange = (e) => data[r.id + '_' + i] = e.target.value;
-                                td.appendChild(txt);
-                            }
-                        }
-                        tr.appendChild(td);
-                    }
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-                tableCont.appendChild(table);
-                card.appendChild(tableCont);
-            }
-            else if (sec.type === 'dynamic_list') {
-                const listCont = document.createElement('div');
-                listCont.className = 'dynamic-list-container';
-                const addBtn = document.createElement('button');
-                addBtn.className = 'btn btn-secondary';
-                addBtn.style.marginTop = '10px';
-                addBtn.textContent = '+ Añadir ' + (sec.itemName || 'elemento');
-                
-                if (!Array.isArray(data[sec.id])) data[sec.id] = [];
-                
-                const renderItem = (itemData) => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'dynamic-list-item';
-                    itemDiv.style.border = '1px solid var(--border)';
-                    itemDiv.style.padding = '15px';
-                    itemDiv.style.marginBottom = '15px';
-                    itemDiv.style.position = 'relative';
-                    itemDiv.style.backgroundColor = '#fff';
-                    
-                    const titleContainer = document.createElement('div');
-                    titleContainer.style.display = 'flex';
-                    titleContainer.style.alignItems = 'center';
-                    titleContainer.style.borderBottom = '1px solid #ccc';
-                    titleContainer.style.marginBottom = '15px';
-                    titleContainer.style.paddingBottom = '5px';
-                    
-                    const itemTitleInput = document.createElement('input');
-                    itemTitleInput.type = 'text';
-                    itemTitleInput.className = 'dynamic-list-title';
-                    itemTitleInput.value = itemData['_title'] || (sec.itemName || 'Elemento') + ' ' + (Array.from(listCont.children).length);
-                    itemTitleInput.onchange = (e) => itemData['_title'] = e.target.value;
-                    itemTitleInput.style.fontSize = '1.17em';
-                    itemTitleInput.style.fontWeight = 'bold';
-                    itemTitleInput.style.border = 'none';
-                    itemTitleInput.style.outline = 'none';
-                    itemTitleInput.style.flex = '1';
-                    itemTitleInput.style.background = 'transparent';
-                    
-                    titleContainer.appendChild(itemTitleInput);
-                    itemDiv.appendChild(titleContainer);
-                    
-                    const grid = document.createElement('div');
-                    grid.style.display = 'grid';
-                    grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
-                    grid.style.gap = '15px';
-                    
-                    const fullWidthContainer = document.createElement('div');
-                    fullWidthContainer.style.marginTop = '15px';
-                    
-                    sec.fields.forEach(f => {
-                        const group = document.createElement('div');
-                        group.style.display = 'flex';
-                        group.style.flexDirection = 'column';
-                        group.innerHTML = `<label style="font-weight: 600; margin-bottom: 5px;">${f.label}</label>`;
-                        
-                        let input;
-                        if (f.type === 'select') {
-                            input = document.createElement('select');
-                            input.className = 'form-control';
-                            (f.options || []).forEach(opt => {
-                                const option = document.createElement('option');
-                                option.value = opt; option.textContent = opt === "" ? "Seleccionar..." : opt;
-                                input.appendChild(option);
-                            });
-                        } else if (f.type === 'textarea') {
-                            input = document.createElement('textarea');
-                            input.className = 'form-control';
-                            input.style.resize = 'vertical';
-                            input.style.minHeight = '60px';
-                        } else {
-                            input = document.createElement('input');
-                            input.type = f.type || 'text';
-                            input.className = 'form-control';
-                        }
-                        
-                        input.value = itemData[f.id] || '';
-                        input.onchange = (e) => itemData[f.id] = e.target.value;
-                        
-                        group.appendChild(input);
-                        
-                        if (f.type === 'textarea') {
-                            fullWidthContainer.appendChild(group);
-                        } else {
-                            grid.appendChild(group);
-                        }
-                    });
-                    
-                    itemDiv.appendChild(grid);
-                    if (fullWidthContainer.hasChildNodes()) {
-                        itemDiv.appendChild(fullWidthContainer);
-                    }
-                    
-                    const delBtn = document.createElement('button');
-                    delBtn.textContent = '✕';
-                    delBtn.style.position = 'absolute';
-                    delBtn.style.top = '15px';
-                    delBtn.style.right = '15px';
-                    delBtn.style.color = 'red';
-                    delBtn.style.background = 'none';
-                    delBtn.style.border = 'none';
-                    delBtn.style.fontWeight = 'bold';
-                    delBtn.style.cursor = 'pointer';
-                    delBtn.style.fontSize = '1.2em';
-                    
-                    delBtn.onclick = () => {
-                        if(confirm('¿Eliminar ' + (sec.itemName || 'elemento') + '?')) {
-                            data[sec.id].splice(data[sec.id].indexOf(itemData), 1);
-                            itemDiv.remove();
-                            // Re-enum elements if they haven't been custom named
-                            let idx = 1;
-                            Array.from(listCont.children).forEach(child => {
-                                if (child.classList.contains('dynamic-list-item')) {
-                                    const inputTitle = child.querySelector('.dynamic-list-title');
-                                    // Solo re-numerar si parece que seguía el patrón "Elemento X" y no fue editado
-                                    if (inputTitle && inputTitle.value.startsWith((sec.itemName || 'Elemento') + ' ')) {
-                                        inputTitle.value = (sec.itemName || 'Elemento') + ' ' + idx;
-                                        // Update data
-                                        // Find associated data using list idx? Let's just update view for simplicity.
-                                    }
-                                    idx++;
-                                }
-                            });
-                        }
-                    };
-                    
-                    itemDiv.appendChild(delBtn);
-                    itemDiv.appendChild(grid);
-                    listCont.insertBefore(itemDiv, addBtn);
-                };
-                
-                listCont.appendChild(addBtn);
-                
-                data[sec.id].forEach(item => renderItem(item));
-                
-                addBtn.onclick = () => {
-                    const newItem = {};
-                    data[sec.id].push(newItem);
-                    renderItem(newItem);
-                };
-                
-                card.appendChild(listCont);
-            }
-            
-            section.appendChild(card);
-            });
+            renderMaterial(section, matId, template);
         }
         
         containers.content.appendChild(section);
@@ -1467,7 +1100,14 @@ btns.home.addEventListener('click', async () => {
                     const checkboxes = document.querySelectorAll('.material-checkbox:checked');
                     currentProject.selectedMaterials = Array.from(checkboxes).map(c => c.value);
                 }
-                await performSave();
+                const res = await performSave();
+                if (res !== true) {
+                    // Guardado cancelado o fallido: no salir para no perder el trabajo
+                    saveBtn.textContent = 'Guardar y salir';
+                    saveBtn.disabled = false;
+                    if (res === false) alert("No se pudo guardar la obra. Prueba de nuevo con el botón Guardar.");
+                    return;
+                }
                 document.body.removeChild(overlay);
                 showScreen('home');
             } catch (err) {
@@ -1578,7 +1218,9 @@ async function performSave(opts = {}) {
             return true;
         }
     } catch (err) {
-        if (err.name !== 'AbortError') console.error(err);
+        // El usuario cerró el diálogo "Guardar como" sin elegir archivo: no es un error
+        if (err.name === 'AbortError') return 'cancelled';
+        console.error(err);
         return false;
     }
     return false;
@@ -1587,6 +1229,7 @@ async function performSave(opts = {}) {
 // Guardar archivo (Descargar JSON)
 btns.save.addEventListener('click', async () => {
     const success = await performSave();
+    if (success === 'cancelled') return; // cancelado por el usuario: no descargar nada
     if (!success) {
         // Fallback clásico
         const dataStr = JSON.stringify(currentProject, null, 2);
@@ -3588,7 +3231,6 @@ function renderMaterial(section, matId, template) {
                     };
                     
                     itemDiv.appendChild(delBtn);
-                    itemDiv.appendChild(grid);
                     listCont.insertBefore(itemDiv, addBtn);
                 };
                 

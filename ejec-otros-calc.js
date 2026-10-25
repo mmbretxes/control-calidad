@@ -49,7 +49,7 @@ window.renderEjecOtrosCalc = function(container, materialId) {
                 uid: Date.now().toString(),
                 customName: "Zona de Control " + (data.instances.length + 1),
                 ubicacion: '',
-                zonaDate: new Date().toISOString().split('T')[0],
+                zonaDate: localToday(),
                 checks: checksObj
             });
             renderAll();
@@ -230,7 +230,7 @@ window.renderEjecOtrosCalc = function(container, materialId) {
                         checks: JSON.parse(JSON.stringify(inst.checks || {}))
                     };
 
-                    var today = new Date().toISOString().split('T')[0];
+                    var today = localToday();
 
                     if (!inst.zonaDate) {
                         inst.zonaDate = today;

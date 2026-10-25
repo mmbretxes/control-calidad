@@ -262,7 +262,7 @@ window.renderEjecExcavacionesCalc = function(container, materialId) {
             const cid = e.target.dataset.cid;
             data.instances[idx].checks[cid].val = e.target.value;
             if (e.target.value && !data.instances[idx].checks[cid].date) {
-                const today = new Date().toISOString().split('T')[0];
+                const today = localToday();
                 data.instances[idx].checks[cid].date = today;
                 const dInp = wrapper.querySelector(`.ex-chk-date[data-idx="${idx}"][data-cid="${cid}"]`);
                 if (dInp) dInp.value = today;
@@ -289,7 +289,7 @@ window.renderEjecExcavacionesCalc = function(container, materialId) {
                         checks: JSON.parse(JSON.stringify(inst.checks || {}))
                     };
 
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = localToday();
 
                     if (!inst.zonaDate) {
                         inst.zonaDate = today;

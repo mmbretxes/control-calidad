@@ -248,7 +248,7 @@ window.renderEjecAscensoresCalc = function(container, materialId) {
                 if(!data.instances[idx].checks[cid]) data.instances[idx].checks[cid] = {};
                 data.instances[idx].checks[cid].val = e.target.value;
                 if (e.target.value && !data.instances[idx].checks[cid].date) {
-                    data.instances[idx].checks[cid].date = new Date().toISOString().split('T')[0];
+                    data.instances[idx].checks[cid].date = localToday();
                     var dInp = document.querySelector('.ea-chk-date[data-idx="'+idx+'"][data-cid="'+cid+'"]');
                     if(dInp) dInp.value = data.instances[idx].checks[cid].date;
                 }
@@ -294,7 +294,7 @@ window.renderEjecAscensoresCalc = function(container, materialId) {
             fillBtns[i].addEventListener('click', function(e) {
                 var idx = e.target.getAttribute('data-idx');
                 var inst = data.instances[idx];
-                var today = new Date().toISOString().split('T')[0];
+                var today = localToday();
                 var btn = e.target;
                 
                 var items = [];

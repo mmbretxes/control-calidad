@@ -11,6 +11,14 @@ function escHtml(v) {
 }
 window.escHtml = escHtml;
 
+// Fecha de hoy en hora local (AAAA-MM-DD). toISOString() usa hora UTC y entre
+// medianoche y la 1:00/2:00 en España devolvería el día anterior.
+function localToday() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+window.localToday = localToday;
+
 // Datos de los materiales (Plantillas extraídas de los Excel)
 const materialesTemplate = [
     {
@@ -340,7 +348,7 @@ const materialesTemplate = [
             {
                 type: "dynamic_list",
                 id: "lista_cubiertas",
-                title: "Pruebas de servicio Cubierta plana",
+                title: "Pruebas de servicio de cubiertas",
                 itemName: "Cubierta",
                 fields: [
                     { id: "tipo_cubierta", label: "Tipo de cubierta", type: "select", options: ["", "Plana", "Inclinada"] },
@@ -491,31 +499,31 @@ const materialesTemplate = [
 
 if (typeof document !== 'undefined' && !window.renderEjecExcavacionesCalc) {
     const s = document.createElement('script');
-    s.src = 'ejec-excavaciones-calc.js?v=1010';
+    s.src = 'ejec-excavaciones-calc.js?v=1011';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderEjecOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'ejec-otros-calc.js?v=1010';
+    s.src = 'ejec-otros-calc.js?v=1011';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderEnsayosOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'ensayos-otros-calc.js?v=1010';
+    s.src = 'ensayos-otros-calc.js?v=1011';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderRecepcionOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'recepcion-otros-calc.js?v=1010';
+    s.src = 'recepcion-otros-calc.js?v=1011';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderRecepcionRellenosCalc) {
     const s = document.createElement('script');
-    s.src = 'recepcion-rellenos-calc.js?v=1010';
+    s.src = 'recepcion-rellenos-calc.js?v=1011';
     document.head.appendChild(s);
 }
 

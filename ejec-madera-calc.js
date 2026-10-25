@@ -245,7 +245,7 @@ window.renderEjecucionMaderaCalc = function(container, materialId) {
                         checks: JSON.parse(JSON.stringify(inst.checks || {}))
                     };
 
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = localToday();
 
                     if (!inst.zonaDate) {
                         inst.zonaDate = today;
