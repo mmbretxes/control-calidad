@@ -1143,3 +1143,58 @@ input.unified-title:focus {
     }
 }
 
+
+/* ---------- Progreso y no conformidades ---------- */
+.tab-badge, .card-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.card-badge { display: table; margin: 0.3rem 0 0 0; }
+.tab-badge-completo { background: #dcfce7; color: #14532d; }
+.tab-badge-nc { background: #fee2e2; color: #991b1b; }
+.noconf-count {
+    display: inline-block;
+    min-width: 1.4rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.75rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.btn-noconf-activo { border-color: #fca5a5 !important; color: #991b1b !important; }
+.btn-noconf-activo .noconf-count { background: #dc2626; color: #fff; }
+.nc-resaltado td { background: #fef3c7 !important; transition: background 0.3s; }
+.nc-modal th, .nc-modal td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+@media print {
+    .tab-badge, .card-badge, #btn-noconf { display: none !important; }
+}
+
+/* ---------- Fotos de los puntos de inspección ---------- */
+.zc-fotos { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.35rem; }
+.zc-foto { position: relative; display: inline-flex; }
+.foto-mini { height: 56px; width: auto; border-radius: 4px; border: 1px solid #cbd5e1; cursor: zoom-in; background: #fff; }
+.zc-foto-quitar {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid #fca5a5; background: #fff; color: #b91c1c; font-size: 0.7rem; line-height: 1; cursor: pointer; padding: 0;
+}
+.zc-foto-archivo { font-size: 0.75rem; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 4px; padding: 0.2rem 0.4rem; cursor: pointer; }
+.zc-btn-foto {
+    font-size: 0.75rem; padding: 0.15rem 0.5rem; border: 1px dashed #94a3b8; border-radius: 4px;
+    background: transparent; color: #475569; cursor: pointer; white-space: nowrap;
+}
+.zc-btn-foto:hover { background: #f1f5f9; color: #1e293b; }
+@media print {
+    .foto-mini { height: 2.4cm !important; border: none !important; }
+    .zc-btn-foto, .zc-foto-quitar { display: none !important; }
+}

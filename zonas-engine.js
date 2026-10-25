@@ -175,8 +175,18 @@
 
         function estaUsado(it, chk) {
             const cName = chk.name !== undefined ? chk.name : it.name;
-            return (chk.val || '') !== '' || (chk.obs || '') !== '' || (chk.date || '') !== '' ||
+            return (chk.val || '') !== '' || (chk.obs || '') !== '' || (chk.date || '') !== '' || (Array.isArray(chk.fotos) && chk.fotos.length > 0) ||
                 (it.isOtros && cName !== textoOtros && cName !== '') || (it.isCustom && cName !== '');
+        }
+
+        // Fotos del punto: miniaturas + botón para añadir (el botón no se imprime)
+        function htmlFotos(chk, index, cId) {
+            const fotos = Array.isArray(chk.fotos) ? chk.fotos : [];
+            const minis = fotos.map((f, i) => f.mini
+                ? `<span class="zc-foto"><img class="foto-mini zc-foto-ver" src="${f.mini}" data-w="${f.w || ''}" data-h="${f.h || ''}" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" alt="${esc(f.archivo || 'Foto')}" title="${esc(f.archivo || '')}"><button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
+                : `<span class="zc-foto zc-foto-sin-mini"><button type="button" class="zc-foto-ver zc-foto-archivo" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="${esc(f.archivo || '')}">📄 ${esc(f.archivo || 'Foto')}</button><button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
+            ).join('');
+            return `<div class="zc-fotos">${minis}<button type="button" class="zc-btn-foto print-hidden" data-idx="${index}" data-cid="${esc(cId)}" title="Añadir fotos a este punto de inspección">📷 Foto</button></div>`;
         }
 
         function renderAll() {
@@ -261,7 +271,7 @@
                         const opt = (v, t) => `<option value="${v}" ${cVal === v ? 'selected' : ''}>${t}</option>`;
                         html += `
                             <tr class="${trClass}" style="border-bottom: 1px solid var(--border); display: table-row;">
-                                <td style="padding:0.6rem;">${nameHtml}</td>
+                                <td style="padding:0.6rem;">${nameHtml}${htmlFotos(chk, index, cId)}</td>
                                 <td style="padding:0.4rem;">
                                     <input type="date" class="form-control ${PP}-chk-date" data-idx="${index}" data-cid="${esc(cId)}" value="${esc(cDate)}" style="padding:0.3rem; font-size:0.85rem; border:none; background:#f8fafc; width:100%;">
                                 </td>
@@ -346,6 +356,54 @@
             });
 
             on(`.${PP}-btn-fill-all`, 'click', e => rellenarTodo(e.currentTarget));
+
+            // Fotos
+            const chkDe = (el) => {
+                const inst = data.instances[el.dataset.idx];
+                return inst ? inst.checks[el.dataset.cid] : null;
+            };
+            on('.zc-btn-foto', 'click', e => {
+                const btn = e.currentTarget;
+                const inst = data.instances[btn.dataset.idx];
+                const chk = chkDe(btn);
+                if (!inst || !chk) return;
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.multiple = true;
+                input.style.display = 'none';
+                document.body.appendChild(input);
+                input.addEventListener('change', async () => {
+                    const files = Array.from(input.files || []);
+                    input.remove();
+                    if (!files.length || !window.AppFotos) return;
+                    btn.disabled = true; btn.textContent = 'Guardando...';
+                    const zona = inst[campoNombre] || 'Zona';
+                    const puntoTxt = (chk.name || '').slice(0, 40);
+                    const nuevas = await window.AppFotos.adjuntar(materialId, files, `${zona} - ${puntoTxt}`);
+                    if (nuevas.length) {
+                        if (!Array.isArray(chk.fotos)) chk.fotos = [];
+                        chk.fotos.push(...nuevas);
+                        if (typeof markDirty === 'function') markDirty();
+                    }
+                    renderAll();
+                });
+                input.click();
+            });
+            on('.zc-foto-ver', 'click', e => {
+                const chk = chkDe(e.currentTarget);
+                const f = chk && chk.fotos ? chk.fotos[e.currentTarget.dataset.n] : null;
+                if (f && window.AppFotos) window.AppFotos.ver(materialId, f);
+            });
+            on('.zc-foto-quitar', 'click', e => {
+                const el = e.currentTarget;
+                const chk = chkDe(el);
+                if (!chk || !chk.fotos) return;
+                confirmar('¿Quitar esta foto del punto de inspección? El archivo se conserva en la carpeta del capítulo.', () => {
+                    chk.fotos.splice(Number(el.dataset.n), 1);
+                    renderAll();
+                });
+            });
 
             if (CCM()) CCM().bindCustomEvents(wrapper, data, materialId, subTipo, renderAll, PP);
         }

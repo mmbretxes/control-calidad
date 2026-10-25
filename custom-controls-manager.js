@@ -568,7 +568,7 @@
         async promptDeletePoint(materialId, subType, pointText, onConfirmDelete) {
             const isHab = this.isHabitual(materialId, subType, pointText);
             if (!isHab) {
-                if (confirm(`¿Eliminar el punto de control de esta zona?\n\n"${pointText || 'Punto personalizado'}"`)) {
+                if (await window.appConfirmar(`¿Eliminar el punto de control de esta zona?\n\n"${pointText || 'Punto personalizado'}"`)) {
                     onConfirmDelete(false);
                 }
                 return;
@@ -774,7 +774,7 @@
                 btn.onclick = async (e) => {
                     e.stopPropagation();
                     const id = e.currentTarget.dataset.id;
-                    if(confirm("¿Seguro que quieres desvincular este archivo? No se borrará de tu disco, solo se quitará de la lista.")) {
+                    if (await window.appConfirmar("¿Seguro que quieres desvincular este archivo? No se borrará de tu disco, solo se quitará de la lista.", { titulo: 'Desvincular base de datos', aceptar: 'Desvincular' })) {
                         await this.removeHandle(id);
                         if(this.activeDbId === id) {
                             await this.setActiveDb('internal');
@@ -792,7 +792,7 @@
                     const text = e.currentTarget.dataset.text;
                     const parts = k.split('::');
                     
-                    if (confirm(`¿Eliminar permanentemente este punto del catálogo activo?\n\n"${text}"`)) {
+                    if (await window.appConfirmar(`¿Eliminar permanentemente este punto del catálogo activo?\n\n"${text}"`)) {
                         await this.removeHabitual(parts[0], parts[1] || '', text);
                         this.openManagerModal();
                     }
@@ -803,7 +803,7 @@
                 btn.onclick = async (e) => {
                     e.preventDefault();
                     const k = e.currentTarget.dataset.key;
-                    const text = prompt('Introduce el nuevo punto de control para este capítulo:');
+                    const text = await window.appPedirTexto('Nuevo punto habitual', 'Introduce el nuevo punto de control para este capítulo:', '', 'Ej. Comprobación de...');
                     if (text && text.trim()) {
                         const parts = k.split('::');
                         await this.addHabitual(parts[0], parts[1] || '', text.trim());

@@ -594,8 +594,8 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                 removeBtn.style.background = 'transparent';
                 removeBtn.style.border = '1px solid #dc2626';
                 removeBtn.innerHTML = `Eliminar última`;
-                removeBtn.onclick = () => {
-                    if(confirm(`¿Eliminar la Unidad de Inspección ${currentCount} de esta fase? Se perderán las fechas y datos marcados.`)){
+                removeBtn.onclick = async () => {
+                    if (await window.appConfirmar(`¿Eliminar la Unidad de Inspección ${currentCount} de esta fase? Se perderán las fechas y datos marcados.`)) {
                         // Limpiar las keys asociadas a la última UI para no dejarlas huérfanas
                         checksArray.forEach((chk, idx) => {
                             const chkId = `${type}_ui${currentCount}_c${idx}`;
@@ -718,7 +718,7 @@ window.renderEjecHormigonCalc = function(container, materialId) {
                     delete data.checks[custKey];
                     calculateAndRender();
                 } else {
-                    if (confirm(`¿Eliminar este punto de control?`)) {
+                    if (await window.appConfirmar(`¿Eliminar este punto de control?`)) {
                         delete data.checks[custKey];
                         calculateAndRender();
                     }

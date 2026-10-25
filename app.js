@@ -153,101 +153,100 @@ const containers = {
     content: document.getElementById('materials-content')
 };
 
-// Utilidad global para confirmaciones (sustituye a window.confirm)
-window.appConfirm = function(message, onConfirm) {
-    const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.zIndex = '999999';
-    
-    const modal = document.createElement('div');
-    modal.style.backgroundColor = '#fff';
-    modal.style.padding = '2rem';
-    modal.style.borderRadius = '8px';
-    modal.style.border = '1px solid #cbd5e1';
-    modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
-    modal.style.maxWidth = '400px';
-    modal.style.width = '90%';
-    modal.style.textAlign = 'center';
-    
-    const msg = document.createElement('p');
-    msg.textContent = message;
-    msg.style.marginBottom = '2rem';
-    msg.style.lineHeight = '1.5';
-    msg.style.color = '#1e293b';
-    msg.style.fontSize = '1.1rem';
-    msg.style.fontWeight = '500';
-    
-    const btnDiv = document.createElement('div');
-    btnDiv.style.display = 'flex';
-    btnDiv.style.justifyContent = 'center';
-    btnDiv.style.gap = '1rem';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancelar';
-    
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-primary';
-    confirmBtn.textContent = 'Aceptar';
-    confirmBtn.style.backgroundColor = '#dc2626';
-    confirmBtn.style.borderColor = '#dc2626';
-    
-    btnDiv.appendChild(cancelBtn);
-    btnDiv.appendChild(confirmBtn);
-    
-    modal.appendChild(msg);
-    modal.appendChild(btnDiv);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    
-    cancelBtn.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-    });
-    
-    confirmBtn.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-        if(onConfirm) onConfirm();
-    });
-};
-
-// Ventana de elección con varios botones. Devuelve una promesa con el valor del botón pulsado
-// (o null si se cierra pulsando fuera). buttons: [{ label, value, primary?, danger? }]
-window.appChoice = function(title, message, buttons) {
+// ---------------------------------------------------------------------------
+// Ventanas propias de la aplicación (sustituyen a alert, confirm y prompt del navegador)
+// ---------------------------------------------------------------------------
+// Ventana genérica. Devuelve una promesa con el valor del botón pulsado, o null si se cierra
+// (Escape o clic fuera). buttons: [{ label, value, primary?, danger? }]
+// opciones.campo: { valor, placeholder } añade un campo de texto (su valor se devuelve con el botón principal)
+window.appChoice = function(title, message, buttons, opciones = {}) {
     return new Promise(resolve => {
+        const anterior = document.activeElement;
         const overlay = document.createElement('div');
+        overlay.className = 'app-modal-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999999;padding:1rem;';
         const modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;padding:2rem;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-width:480px;width:100%;text-align:center;';
+        modal.className = 'app-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.style.cssText = 'background:#fff;padding:1.75rem;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-width:480px;width:100%;text-align:center;max-height:90vh;overflow:auto;';
         const h = document.createElement('h3');
         h.textContent = title;
         h.style.cssText = 'margin:0 0 1rem 0;color:#1e293b;font-size:1.2rem;';
         const p = document.createElement('p');
         p.textContent = message;
-        p.style.cssText = 'margin-bottom:1.5rem;line-height:1.5;color:#475569;white-space:pre-line;';
+        p.style.cssText = 'margin-bottom:1.5rem;line-height:1.5;color:#475569;white-space:pre-line;text-align:' + (message.length > 160 ? 'left' : 'center') + ';';
+        let input = null;
+        if (opciones.campo) {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control';
+            input.value = opciones.campo.valor || '';
+            input.placeholder = opciones.campo.placeholder || '';
+            input.style.cssText = 'width:100%;margin:-0.5rem 0 1.5rem 0;border:1px solid #cbd5e1;border-radius:6px;padding:0.6rem 0.75rem;';
+        }
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;justify-content:center;gap:0.75rem;flex-wrap:wrap;';
-        const close = (v) => { overlay.remove(); resolve(v); };
+        const cerrar = (v) => {
+            document.removeEventListener('keydown', teclas, true);
+            overlay.remove();
+            if (anterior && anterior.focus) { try { anterior.focus(); } catch (e) {} }
+            resolve(v);
+        };
+        let principal = null;
         buttons.forEach(b => {
             const btn = document.createElement('button');
+            btn.type = 'button';
             btn.className = 'btn ' + (b.primary ? 'btn-primary' : 'btn-secondary');
             btn.textContent = b.label;
             if (b.danger) { btn.style.background = '#fee2e2'; btn.style.borderColor = '#fca5a5'; btn.style.color = '#991b1b'; }
-            btn.addEventListener('click', () => close(b.value));
+            btn.addEventListener('click', () => cerrar(input && (b.primary || b.danger) ? { boton: b.value, texto: input.value } : b.value));
             row.appendChild(btn);
+            if (b.primary || (b.danger && !principal)) principal = btn;
         });
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
-        modal.append(h, p, row);
+        function teclas(e) {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(null); }
+            else if (e.key === 'Enter' && principal && (e.target === input || !e.target.closest || !e.target.closest('button'))) { e.preventDefault(); principal.click(); }
+        }
+        document.addEventListener('keydown', teclas, true);
+        overlay.addEventListener('click', e => { if (e.target === overlay) cerrar(null); });
+        modal.append(h, p);
+        if (input) modal.append(input);
+        modal.append(row);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
+        setTimeout(() => { const f = input || principal; if (f) f.focus(); if (input) input.select(); }, 0);
     });
+};
+
+// Aviso informativo (no detiene la aplicación)
+window.appAlert = function(mensaje, titulo = 'Aviso') {
+    return window.appChoice(titulo, String(mensaje), [{ label: 'Aceptar', value: true, primary: true }]);
+};
+// Todos los avisos de las fichas usan la ventana de la aplicación
+window.alert = function(mensaje) { window.appAlert(mensaje); };
+
+// Confirmación. Devuelve una promesa con true/false.
+// opciones: { titulo, aceptar (texto del botón), peligro (true: botón rojo, para borrar) }
+window.appConfirmar = function(mensaje, opciones = {}) {
+    const peligro = opciones.peligro !== false;
+    return window.appChoice(opciones.titulo || (peligro ? 'Confirmar eliminación' : 'Confirmar'), String(mensaje), [
+        { label: 'Cancelar', value: false },
+        { label: opciones.aceptar || (peligro ? 'Eliminar' : 'Aceptar'), value: true, primary: !peligro, danger: peligro }
+    ]).then(v => v === true);
+};
+
+// Compatibilidad con el uso existente: appConfirm(mensaje, alAceptar)
+window.appConfirm = function(mensaje, onConfirm, opciones) {
+    window.appConfirmar(mensaje, opciones).then(ok => { if (ok && onConfirm) onConfirm(); });
+};
+
+// Petición de texto. Devuelve una promesa con el texto, o null si se cancela.
+window.appPedirTexto = function(titulo, mensaje, valorInicial = '', placeholder = '') {
+    return window.appChoice(titulo, String(mensaje), [
+        { label: 'Cancelar', value: false },
+        { label: 'Aceptar', value: true, primary: true }
+    ], { campo: { valor: valorInicial, placeholder } }).then(r => (r && r.boton === true) ? r.texto : null);
 };
 
 // ---------------------------------------------------------------------------
@@ -394,6 +393,9 @@ function showScreen(screenId) {
     btns.save.style.display = (screenId === 'setup' || screenId === 'control' || screenId === 'print') ? 'inline-flex' : 'none';
     btns.print.style.display = (screenId === 'setup' || screenId === 'control') ? 'inline-flex' : 'none';
     if (btns.customControls) btns.customControls.style.display = (screenId === 'setup' || screenId === 'control') ? 'inline-flex' : 'none';
+    const btnNoConf = document.getElementById('btn-noconf');
+    if (btnNoConf) btnNoConf.style.display = (screenId === 'setup' || screenId === 'control' || screenId === 'print') ? 'inline-flex' : 'none';
+    if (screenId !== 'home' && typeof actualizarIndicadores === 'function') actualizarIndicadores();
     
     document.getElementById('project-subtitle').textContent = 
         currentProject.name ? currentProject.name : 'Gestor de Obras';
@@ -575,7 +577,7 @@ async function saveFilesToChapter(files, mat) {
         confirmMsg = `¿Estás seguro de que quieres guardar ${files.length} archivos en el capítulo "${mat.name}"?`;
     }
     
-    if (!confirm(confirmMsg)) return;
+    if (!(await window.appConfirmar(confirmMsg, { titulo: 'Guardar documentos', aceptar: 'Guardar', peligro: false }))) return;
     
     try {
         // Mapear categoría al nombre de carpeta
@@ -666,6 +668,7 @@ function renderControlForms() {
             document.querySelectorAll('select').forEach(updateSelectStatusAttribute);
         }, 60);
     }
+    actualizarIndicadores();
     } catch (err) {
         alert("Error en la renderización: " + err.message + "\nStack: " + err.stack);
         console.error(err);
@@ -768,7 +771,7 @@ async function renderRecentProjects() {
         btnEdit.title = 'Renombrar en historial';
         btnEdit.onclick = async (e) => {
             e.stopPropagation();
-            const newName = prompt("Nuevo nombre para el registro local:", p.name);
+            const newName = await window.appPedirTexto('Renombrar obra', 'Nuevo nombre para el historial de obras recientes:', p.name);
             if (newName && newName.trim() !== '') {
                 await DB.saveProject(p.id, newName.trim(), p.dirHandle, p.fileHandle);
                 renderRecentProjects();
@@ -784,7 +787,7 @@ async function renderRecentProjects() {
         btnDelete.title = 'Eliminar del historial';
         btnDelete.onclick = async (e) => {
             e.stopPropagation();
-            if (confirm(`¿Quitar '${p.name}' del historial reciente? (No se borrarán los archivos)`)) {
+            if (await window.appConfirmar(`¿Quitar '${p.name}' del historial reciente? (No se borrarán los archivos)`, { titulo: 'Quitar del historial', aceptar: 'Quitar' })) {
                 await DB.deleteProject(p.id);
                 renderRecentProjects();
             }
@@ -1304,6 +1307,105 @@ async function asegurarCarpetasCapitulos() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Fotos de los puntos de inspección
+// El original se guarda en la carpeta del capítulo; en los datos solo se guarda una
+// miniatura ligera (para verla en pantalla, en la impresión y en Word).
+// ---------------------------------------------------------------------------
+window.AppFotos = {
+    LADO_MINI: 360,
+
+    async miniatura(file) {
+        const bmp = await createImageBitmap(file);
+        const escala = Math.min(1, this.LADO_MINI / Math.max(bmp.width, bmp.height));
+        const w = Math.max(1, Math.round(bmp.width * escala)), h = Math.max(1, Math.round(bmp.height * escala));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+        if (bmp.close) bmp.close();
+        return { mini: canvas.toDataURL('image/jpeg', 0.75), w, h };
+    },
+
+    async asegurarCarpeta() {
+        if (projectDirHandle) return true;
+        const ok = await window.appConfirmar('Para guardar fotos hay que indicar la carpeta de la obra, donde se guardará el original de cada foto (en la carpeta del capítulo).', { titulo: 'Carpeta de la obra', aceptar: 'Seleccionar carpeta', peligro: false });
+        if (!ok) return false;
+        try { projectDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' }); return true; }
+        catch (e) { return false; }
+    },
+
+    nombreArchivo(descripcion, file, n) {
+        const d = new Date();
+        const sello = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' +
+            String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + String(d.getSeconds()).padStart(2, '0');
+        const ext = ((file.name || '').match(/\.([a-z0-9]{2,5})$/i) || [, 'jpg'])[1].toLowerCase();
+        const base = ('Foto ' + (descripcion || '')).replace(/[\\/:*?"<>|\n\r\t]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80);
+        return `${base} ${sello}${(n !== null && n !== undefined) ? '-' + (n + 1) : ''}.${ext}`;
+    },
+
+    // Guarda los archivos y devuelve [{ archivo, mini, w, h, fecha }]
+    async adjuntar(matId, files, descripcion) {
+        const mat = materialesTemplate.find(m => m.id === matId);
+        if (!mat || !files || !files.length) return [];
+        if (!(await this.asegurarCarpeta())) return [];
+        const resultado = [];
+        try {
+            const dir = await carpetaCapitulo(mat);
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const archivo = this.nombreArchivo(descripcion, file, files.length > 1 ? i : null);
+                const fh = await dir.getFileHandle(archivo, { create: true });
+                const w = await fh.createWritable();
+                await w.write(file);
+                await w.close();
+                let m = { mini: null, w: 0, h: 0 };
+                try { m = await this.miniatura(file); } catch (e) { /* formato no visualizable (p. ej. HEIC): se guarda sin miniatura */ }
+                resultado.push({ archivo, mini: m.mini, w: m.w, h: m.h, fecha: localToday() });
+            }
+        } catch (err) {
+            console.error(err);
+            window.appAlert('No se pudo guardar la foto en la carpeta del capítulo: ' + err.message, 'Error al guardar la foto');
+        }
+        return resultado;
+    },
+
+    // Muestra la foto: primero la miniatura y, si se puede leer, el original de la carpeta
+    async ver(matId, foto) {
+        const overlay = document.createElement('div');
+        overlay.className = 'app-modal-overlay foto-visor';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999999;padding:1rem;gap:0.75rem;';
+        const img = document.createElement('img');
+        img.alt = foto.archivo || 'Foto';
+        img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:6px;background:#fff;';
+        if (foto.mini) img.src = foto.mini;
+        const pie = document.createElement('div');
+        pie.style.cssText = 'color:#e2e8f0;font-size:0.85rem;text-align:center;';
+        pie.textContent = (foto.archivo || '') + (foto.fecha ? ' · ' + foto.fecha.split('-').reverse().join('/') : '');
+        const cerrarBtn = document.createElement('button');
+        cerrarBtn.type = 'button';
+        cerrarBtn.className = 'btn btn-secondary';
+        cerrarBtn.textContent = 'Cerrar';
+        overlay.append(img, pie, cerrarBtn);
+        document.body.appendChild(overlay);
+        let url = null;
+        const cerrar = () => { overlay.remove(); if (url) URL.revokeObjectURL(url); document.removeEventListener('keydown', tecla, true); };
+        function tecla(e) { if (e.key === 'Escape') { e.preventDefault(); cerrar(); } }
+        document.addEventListener('keydown', tecla, true);
+        overlay.addEventListener('click', e => { if (e.target === overlay || e.target === cerrarBtn) cerrar(); });
+        try {
+            const mat = materialesTemplate.find(m => m.id === matId);
+            if (projectDirHandle && mat && foto.archivo) {
+                const dir = await carpetaCapitulo(mat);
+                const file = await (await dir.getFileHandle(foto.archivo)).getFile();
+                url = URL.createObjectURL(file);
+                img.src = url;
+            }
+        } catch (e) {
+            if (!foto.mini) pie.textContent += ' · No se encuentra el archivo original en la carpeta del capítulo.';
+        }
+    }
+};
+
 // Abrir la obra contenida en una carpeta (datos_obra.json)
 async function loadProjectFromDirHandle(dirHandle) {
     let fileHandle;
@@ -1394,6 +1496,7 @@ function hasDataToPrint(matId, template) {
                         if (chk.status && chk.status.trim() !== '') return true;
                         if (chk.val && chk.val.trim() !== '') return true;
                         if (chk.obs && chk.obs.trim() !== '') return true;
+                        if (Array.isArray(chk.fotos) && chk.fotos.length) return true;
                         if (chk.isCustom && chk.name && chk.name.trim() !== '') return true;
                         if (chk.check1 && chk.check1.trim() !== '') return true;
                         if (chk.check2 === true) return true;
@@ -1521,26 +1624,201 @@ function hasDataToPrint(matId, template) {
     return false;
 }
 
-// Cuenta las no conformidades registradas en un capítulo: resultados "No Correcto",
-// "Incorrecto", "No cumple", "No conforme", "Rechazado" y lotes de ensayo no aprobados.
-function contarNoConformidades(matId) {
+// ---------------------------------------------------------------------------
+// No conformidades y progreso por capítulo
+// ---------------------------------------------------------------------------
+const NEGATIVOS_NC = ['no correcto', 'incorrecto', 'no cumple', 'no conforme', 'rechazado'];
+const CAMPOS_NOMBRE_ZONA = ['customName', 'zonaName', '_title', 'nombre', 'referencia', 'identificacion'];
+
+// Lista detallada de no conformidades de un capítulo: puntos con resultado negativo
+// (No Correcto, Incorrecto, No cumple, No conforme, Rechazado) y lotes de ensayo no conformes.
+function listarNoConformidades(matId) {
     const data = currentProject.formData ? currentProject.formData[matId] : null;
-    if (!data) return 0;
-    const negativos = ['no correcto', 'incorrecto', 'no cumple', 'no conforme', 'rechazado'];
-    let n = 0;
+    const lista = [];
+    if (!data) return lista;
     const visitados = new Set();
-    (function recorrer(v) {
-        if (v === null || v === undefined) return;
-        if (typeof v === 'string') {
-            if (negativos.includes(v.trim().toLowerCase())) n++;
+    (function recorrer(v, clave, ctx) {
+        if (v === null || typeof v !== 'object' || visitados.has(v)) return;
+        visitados.add(v);
+        if (Array.isArray(v)) {
+            v.forEach((item, i) => recorrer(item, String(i), (clave === 'instances') ? Object.assign({}, ctx, { idx: i }) : ctx));
             return;
         }
-        if (typeof v !== 'object' || visitados.has(v)) return;
-        visitados.add(v);
-        if (!Array.isArray(v) && v.aprobado === false && v.fest !== undefined) n++;
-        Object.keys(v).forEach(k => { if (k !== '_backup') recorrer(v[k]); });
-    })(data);
-    return n;
+        // Nombre de la zona / suministro / lote que contiene los puntos
+        const nombre = CAMPOS_NOMBRE_ZONA.map(k => v[k]).find(x => typeof x === 'string' && x.trim());
+        const c = nombre ? Object.assign({}, ctx, { zona: nombre.trim() }) : ctx;
+        let registrado = false;
+        Object.keys(v).forEach(k => {
+            const val = v[k];
+            if (!registrado && typeof val === 'string' && NEGATIVOS_NC.includes(val.trim().toLowerCase())) {
+                registrado = true;
+                lista.push({
+                    matId, zona: c.zona || '', idx: c.idx, cid: clave,
+                    punto: (v.name || v.label || v.tipo_ensayo || v.punto || '').toString(),
+                    resultado: val.trim(),
+                    fecha: v.date || v.fecha || '',
+                    obs: v.obs || v.observaciones || ''
+                });
+            }
+        });
+        if (v.aprobado === false && v.fest !== undefined) {
+            lista.push({ matId, zona: c.zona || 'Lote de ensayo', idx: c.idx, cid: clave, punto: 'Resistencia estimada inferior a fck', resultado: 'No conforme', fecha: '', obs: '' });
+        }
+        Object.keys(v).forEach(k => { if (k !== '_backup') recorrer(v[k], k, c); });
+    })(data, '', {});
+    return lista;
+}
+
+function contarNoConformidades(matId) {
+    return listarNoConformidades(matId).length;
+}
+
+// Progreso de un capítulo: puntos de inspección con resultado (ejecución) o documentos
+// resueltos (recepción). total = null cuando la ficha no tiene un recuento sencillo.
+function progresoCapitulo(matId) {
+    const data = currentProject.formData ? currentProject.formData[matId] : null;
+    const res = { hechos: 0, total: null, nc: contarNoConformidades(matId) };
+    if (!data || !Array.isArray(data.instances)) return res;
+    let total = 0, hechos = 0;
+    data.instances.forEach(inst => {
+        Object.keys(inst.checks || {}).forEach(k => {
+            const c = inst.checks[k];
+            if (k.startsWith('_') || !c || typeof c !== 'object') return;
+            if ('val' in c) { total++; if (c.val) hechos++; }
+            else if ('status' in c) { total++; if (c.status && c.status !== 'Pendiente') hechos++; }
+        });
+    });
+    if (total > 0) { res.total = total; res.hechos = hechos; }
+    return res;
+}
+
+function textoProgreso(pr) {
+    const partes = [];
+    if (pr.total) partes.push(`${pr.hechos}/${pr.total}`);
+    if (pr.nc) partes.push(`⚠ ${pr.nc}`);
+    return partes.join(' · ');
+}
+
+// Actualiza las insignias de las pestañas, las tarjetas de capítulos y el botón de no conformidades
+let indicadoresPendiente = false;
+function actualizarIndicadores() {
+    if (indicadoresPendiente) return;
+    indicadoresPendiente = true;
+    setTimeout(() => {
+        indicadoresPendiente = false;
+        if (!currentProject || !currentProject.formData) return;
+        document.querySelectorAll('#materials-tabs .tab[data-target]').forEach(tab => {
+            const pr = progresoCapitulo(tab.dataset.target);
+            let badge = tab.querySelector('.tab-badge');
+            const txt = textoProgreso(pr);
+            if (!txt) { if (badge) badge.remove(); return; }
+            if (!badge) { badge = document.createElement('span'); badge.className = 'tab-badge'; tab.appendChild(badge); }
+            badge.textContent = txt;
+            badge.classList.toggle('tab-badge-nc', pr.nc > 0);
+            badge.classList.toggle('tab-badge-completo', !pr.nc && pr.total && pr.hechos === pr.total);
+            badge.title = (pr.total ? `${pr.hechos} de ${pr.total} ${pr.total === 1 ? 'elemento revisado' : 'elementos revisados'}` : '') + (pr.nc ? `${pr.total ? ' · ' : ''}${pr.nc} no conformidad${pr.nc > 1 ? 'es' : ''}` : '');
+        });
+        document.querySelectorAll('.materials-grid .material-checkbox').forEach(chk => {
+            const card = chk.nextElementSibling;
+            if (!card) return;
+            const pr = progresoCapitulo(chk.value);
+            let badge = card.querySelector('.card-badge');
+            const txt = textoProgreso(pr);
+            if (!txt) { if (badge) badge.remove(); return; }
+            if (!badge) { badge = document.createElement('span'); badge.className = 'card-badge'; card.querySelector('.material-name').appendChild(badge); }
+            badge.textContent = txt;
+            badge.classList.toggle('tab-badge-nc', pr.nc > 0);
+        });
+        const total = (currentProject.selectedMaterials || []).reduce((n, id) => n + contarNoConformidades(id), 0);
+        const cnt = document.getElementById('noconf-count');
+        if (cnt) cnt.textContent = total;
+        const btn = document.getElementById('btn-noconf');
+        if (btn) btn.classList.toggle('btn-noconf-activo', total > 0);
+    }, 150);
+}
+['change', 'input'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('#materials-content')) actualizarIndicadores(); }));
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#materials-content button, .app-modal button')) actualizarIndicadores(); });
+
+// Ventana con todas las no conformidades abiertas de la obra
+function abrirNoConformidades() {
+    const ids = materialesTemplate.filter(m => (currentProject.selectedMaterials || []).includes(m.id)).map(m => m.id);
+    const grupos = ids.map(id => ({ tpl: materialesTemplate.find(m => m.id === id), lista: listarNoConformidades(id) })).filter(g => g.lista.length);
+    const total = grupos.reduce((n, g) => n + g.lista.length, 0);
+    const bloques = { recepcion: '1. Control de recepción', ejecucion: '2. Control de ejecución', ensayos: '3. Ensayos y pruebas de servicio' };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'app-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999;padding:1rem;';
+    const modal = document.createElement('div');
+    modal.className = 'app-modal nc-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.style.cssText = 'background:#fff;border-radius:8px;max-width:820px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 25px rgba(0,0,0,0.2);';
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.25rem;border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0;font-size:1.15rem;color:#1e293b;">No conformidades abiertas <span style="color:${total ? '#b91c1c' : '#15803d'};">(${total})</span></h3>
+            <button type="button" class="btn btn-secondary nc-cerrar" aria-label="Cerrar">✕</button>
+        </div><div style="overflow:auto;padding:1rem 1.25rem;">`;
+    if (!total) {
+        html += `<p style="color:#475569;">No hay puntos con resultado negativo en los capítulos seleccionados.</p>`;
+    } else {
+        html += `<p style="color:#64748b;font-size:0.85rem;margin-bottom:1rem;">Puntos marcados como No Correcto, Incorrecto, No cumple, No conforme o Rechazado, y lotes de ensayo no conformes. Desaparecen de la lista al corregir el resultado.</p>`;
+        grupos.forEach(g => {
+            html += `<h4 style="margin:1rem 0 0.5rem 0;color:#1e293b;font-size:0.95rem;">${escHtml(bloques[g.tpl.category] || '')} · ${escHtml(g.tpl.name)}</h4>
+                <div class="table-container" style="margin-bottom:0.5rem;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead><tr><th style="text-align:left;">Zona / suministro</th><th style="text-align:left;">Punto</th><th>Resultado</th><th>Fecha</th><th style="text-align:left;">Observaciones</th><th></th></tr></thead><tbody>`;
+            g.lista.forEach((nc, i) => {
+                const fecha = nc.fecha && /^\d{4}-\d{2}-\d{2}$/.test(nc.fecha) ? nc.fecha.split('-').reverse().join('/') : (nc.fecha || '');
+                html += `<tr>
+                    <td>${escHtml(nc.zona)}</td><td>${escHtml(nc.punto)}</td>
+                    <td style="color:#b91c1c;font-weight:600;white-space:nowrap;">${escHtml(nc.resultado)}</td>
+                    <td style="white-space:nowrap;">${escHtml(fecha)}</td><td>${escHtml(nc.obs)}</td>
+                    <td><button type="button" class="btn btn-secondary nc-ir" data-mat="${escHtml(g.tpl.id)}" data-i="${i}" style="padding:0.2rem 0.6rem;font-size:0.8rem;">Ir</button></td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+        });
+    }
+    html += `</div>`;
+    modal.innerHTML = html;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    const cerrar = () => { overlay.remove(); document.removeEventListener('keydown', esc, true); };
+    function esc(e) { if (e.key === 'Escape') { e.preventDefault(); cerrar(); } }
+    document.addEventListener('keydown', esc, true);
+    overlay.addEventListener('click', e => { if (e.target === overlay) cerrar(); });
+    modal.querySelector('.nc-cerrar').addEventListener('click', cerrar);
+    modal.querySelectorAll('.nc-ir').forEach(b => b.addEventListener('click', () => {
+        const g = grupos.find(x => x.tpl.id === b.dataset.mat);
+        const nc = g.lista[Number(b.dataset.i)];
+        cerrar();
+        irANoConformidad(g.tpl, nc);
+    }));
+}
+
+// Lleva a la ficha y resalta el punto no conforme
+function irANoConformidad(tpl, nc) {
+    if (currentActiveCategory !== tpl.category || !screens.control.classList.contains('active')) {
+        updateProjectDataFromInputs();
+        currentActiveCategory = tpl.category;
+        renderControlForms();
+        showScreen('control');
+    }
+    activateTab(tpl.id);
+    setTimeout(() => {
+        const sec = document.getElementById('section-' + tpl.id);
+        if (!sec) return;
+        let el = null;
+        if (nc.idx !== undefined && nc.cid) {
+            el = sec.querySelector(`select[data-idx="${nc.idx}"][data-cid="${CSS.escape(nc.cid)}"]`);
+        }
+        if (!el && nc.cid) el = sec.querySelector(`[data-cid="${CSS.escape(nc.cid)}"], [data-id="${CSS.escape(nc.cid)}"]`);
+        if (!el) el = Array.from(sec.querySelectorAll('select')).find(s => NEGATIVOS_NC.includes((s.value || '').toLowerCase()));
+        const fila = el ? (el.closest('tr') || el) : null;
+        if (fila) {
+            fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            fila.classList.add('nc-resaltado');
+            setTimeout(() => fila.classList.remove('nc-resaltado'), 2500);
+        }
+    }, 100);
 }
 
 function renderPrintConfig() {
@@ -1940,6 +2218,7 @@ function generatePrintDocument(action = 'print') {
                         if (s.value && s.value.trim() !== '' && s.value !== 'Seleccionar...') rowIsUsed = true;
                     });
                     
+                    if (r.querySelector('img.foto-mini')) rowIsUsed = true;
                     const inputs = r.querySelectorAll('input[type="text"], input[type="date"], textarea');
                     inputs.forEach(inp => {
                         if (inp.value && inp.value.trim() !== '' && inp.value !== 'Otros' && inp.value !== 'Otro') rowIsUsed = true;
@@ -2434,6 +2713,14 @@ function generatePrintDocument(action = 'print') {
             }
         });
 
+        // Word necesita el tamaño de las imágenes en atributos
+        printArea.querySelectorAll('img.foto-mini').forEach(img => {
+            const w = Number(img.dataset.w) || img.naturalWidth || 360, h = Number(img.dataset.h) || img.naturalHeight || 270;
+            const alto = 90;
+            img.setAttribute('height', String(alto));
+            img.setAttribute('width', String(Math.round(w * alto / h)));
+            img.style.marginRight = '4px';
+        });
         let bodyHtml = printArea.innerHTML;
 
         const htmlStr = `
@@ -2703,6 +2990,9 @@ btns.print.addEventListener('click', () => {
     showScreen('print');
 });
 
+const btnNoConformidades = document.getElementById('btn-noconf');
+if (btnNoConformidades) btnNoConformidades.addEventListener('click', () => { updateProjectDataFromInputs(); abrirNoConformidades(); });
+
 const btnPrintSummary = document.getElementById('btn-print-summary');
 if (btnPrintSummary) {
     btnPrintSummary.addEventListener('click', () => {
@@ -2750,7 +3040,7 @@ async function handleExploreClick(e, mat) {
     e.stopPropagation();
 
     if (!projectDirHandle) {
-        const confirmDir = confirm("No tenemos acceso a la carpeta raíz de la obra. ¿Deseas seleccionarla ahora para poder explorar los documentos?");
+        const confirmDir = await window.appConfirmar("No tenemos acceso a la carpeta raíz de la obra. ¿Deseas seleccionarla ahora para poder explorar los documentos?", { titulo: 'Carpeta de la obra', aceptar: 'Seleccionar carpeta', peligro: false });
         if (confirmDir) {
             try {
                 projectDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
@@ -3253,8 +3543,8 @@ function renderMaterial(section, matId, template) {
                     delBtn.style.cursor = 'pointer';
                     delBtn.style.fontSize = '1.2em';
                     
-                    delBtn.onclick = () => {
-                        if(confirm('¿Eliminar ' + (sec.itemName || 'elemento') + '?')) {
+                    delBtn.onclick = async () => {
+                        if (await window.appConfirmar('¿Eliminar ' + (sec.itemName || 'elemento') + '?')) {
                             data[sec.id].splice(data[sec.id].indexOf(itemData), 1);
                             itemDiv.remove();
                             let idx = 1;

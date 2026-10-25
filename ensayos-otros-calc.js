@@ -84,8 +84,8 @@ window.renderEnsayosOtrosCalc = function(container, materialId) {
             delBtn.style.fontWeight = 'bold';
             delBtn.style.cursor = 'pointer';
             delBtn.style.fontSize = '1.2em';
-            delBtn.onclick = function() {
-                if (confirm('¿Eliminar Ensayo?')) {
+            delBtn.onclick = async function() {
+                if (await window.appConfirmar('¿Eliminar ensayo?')) {
                     data.lista_ensayos_varios.splice(idx, 1);
                     renderAll();
                 }

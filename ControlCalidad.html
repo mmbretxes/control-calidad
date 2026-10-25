@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Control de Calidad</title>
-    <link rel="stylesheet" href="styles.css?v=2.4">
+    <link rel="stylesheet" href="styles.css?v=2.5">
 </head>
 <body>
     <div id="browser-warning" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem; font-family: system-ui, sans-serif;">
@@ -43,6 +43,10 @@
                 <button id="btn-custom-controls" class="btn btn-secondary" style="display: none;" title="Configurar base de datos de puntos de control personalizados">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
                     <span id="custom-controls-status-text">Puntos personalizados</span>
+                </button>
+                <button id="btn-noconf" class="btn btn-secondary" style="display: none;" title="Ver todas las no conformidades abiertas de la obra">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    No conformidades <span id="noconf-count" class="noconf-count">0</span>
                 </button>
                 <button id="btn-print" class="btn btn-secondary" style="display: none;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
@@ -309,52 +313,52 @@
     <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
 
     <!-- Carga de scripts -->
-    <script src="data.js?v=1012"></script>
-    <script src="hormigon-calc.js?v=1012"></script>
-    <script src="ejec-hormigon-calc.js?v=1012"></script>
-    <script src="recepcion-hormigon-calc.js?v=1012"></script>
-    <script src="recepcion-forjados-calc.js?v=1012"></script>
-    <script src="recepcion-ferralla-calc.js?v=1012"></script>
-    <script src="recepcion-est-acero-calc.js?v=1012"></script>
-    <script src="recepcion-pavimentos-calc.js?v=1012"></script>
-    <script src="recepcion-carpinteria-calc.js?v=1012"></script>
-    <script src="recepcion-barandillas-calc.js?v=1012"></script>
-    <script src="recepcion-aislantes-calc.js?v=1012"></script>
-    <script src="recepcion-forjados-madera-calc.js?v=1012"></script>
-    <script src="recepcion-est-prefab-hormigon-calc.js?v=1012"></script>
-    <script src="recepcion-est-prefab-madera-calc.js?v=1012"></script>
-    <script src="recepcion-fabrica-estructural-calc.js?v=1012"></script>
-    <script src="recepcion-impermeabilizantes-calc.js?v=1012"></script>
-    <script src="recepcion-sate-calc.js?v=1012"></script>
-    <script src="recepcion-aplacados-calc.js?v=1012"></script>
-    <script src="recepcion-morteros-calc.js?v=1012"></script>
-    <script src="recepcion-sistemas-ventilados-calc.js?v=1012"></script>
-    <script src="recepcion-fontaneria-calc.js?v=1012"></script>
-    <script src="recepcion-electricidad-calc.js?v=1012"></script>
-    <script src="custom-controls-manager.js?v=1012"></script>
-    <script src="zonas-engine.js?v=1012"></script>
-    <script src="suministros-engine.js?v=1012"></script>
-    <script src="ejec-forjados-calc.js?v=1012"></script>
-    <script src="ejec-madera-calc.js?v=1012"></script>
-    <script src="ejec-est-prefab-hormigon-calc.js?v=1012"></script>
-    <script src="ejec-est-prefab-madera-calc.js?v=1012"></script>
-    <script src="ejec-barandillas-calc.js?v=1012"></script>
-    <script src="ejec-ascensores-calc.js?v=1012"></script>
-    <script src="ejec-fabrica-calc.js?v=1012"></script>
-    <script src="ejec-cubiertas-calc.js?v=1012"></script>
-    <script src="ejec-rev-fachada-calc.js?v=1012"></script>
-    <script src="ejec-tabiqueria-calc.js?v=1012"></script>
-    <script src="ejec-pavimentos-calc.js?v=1012"></script>
-    <script src="ejec-rampas-escaleras-calc.js?v=1012"></script>
-    <script src="ejec-fontaneria-calc.js?v=1012"></script>
-    <script src="ejec-carpinteria-ext-calc.js?v=1012"></script>
-    <script src="ejec-saneamiento-calc.js?v=1012"></script>
-    <script src="ejec-calefaccion-calc.js?v=1012"></script>
-    <script src="ejec-aire-acondicionado-calc.js?v=1012"></script>
-    <script src="ejec-electricidad-calc.js?v=1012"></script>
-    <script src="ejec-est-acero-calc.js?v=1012"></script>
-    <script src="ejec-piscinas-calc.js?v=1012"></script>
-    <script src="ensayos-est-acero-calc.js?v=1012"></script>
-    <script src="app.js?v=1013"></script>
+    <script src="data.js?v=1020"></script>
+    <script src="hormigon-calc.js?v=1020"></script>
+    <script src="ejec-hormigon-calc.js?v=1020"></script>
+    <script src="recepcion-hormigon-calc.js?v=1020"></script>
+    <script src="recepcion-forjados-calc.js?v=1020"></script>
+    <script src="recepcion-ferralla-calc.js?v=1020"></script>
+    <script src="recepcion-est-acero-calc.js?v=1020"></script>
+    <script src="recepcion-pavimentos-calc.js?v=1020"></script>
+    <script src="recepcion-carpinteria-calc.js?v=1020"></script>
+    <script src="recepcion-barandillas-calc.js?v=1020"></script>
+    <script src="recepcion-aislantes-calc.js?v=1020"></script>
+    <script src="recepcion-forjados-madera-calc.js?v=1020"></script>
+    <script src="recepcion-est-prefab-hormigon-calc.js?v=1020"></script>
+    <script src="recepcion-est-prefab-madera-calc.js?v=1020"></script>
+    <script src="recepcion-fabrica-estructural-calc.js?v=1020"></script>
+    <script src="recepcion-impermeabilizantes-calc.js?v=1020"></script>
+    <script src="recepcion-sate-calc.js?v=1020"></script>
+    <script src="recepcion-aplacados-calc.js?v=1020"></script>
+    <script src="recepcion-morteros-calc.js?v=1020"></script>
+    <script src="recepcion-sistemas-ventilados-calc.js?v=1020"></script>
+    <script src="recepcion-fontaneria-calc.js?v=1020"></script>
+    <script src="recepcion-electricidad-calc.js?v=1020"></script>
+    <script src="custom-controls-manager.js?v=1020"></script>
+    <script src="zonas-engine.js?v=1020"></script>
+    <script src="suministros-engine.js?v=1020"></script>
+    <script src="ejec-forjados-calc.js?v=1020"></script>
+    <script src="ejec-madera-calc.js?v=1020"></script>
+    <script src="ejec-est-prefab-hormigon-calc.js?v=1020"></script>
+    <script src="ejec-est-prefab-madera-calc.js?v=1020"></script>
+    <script src="ejec-barandillas-calc.js?v=1020"></script>
+    <script src="ejec-ascensores-calc.js?v=1020"></script>
+    <script src="ejec-fabrica-calc.js?v=1020"></script>
+    <script src="ejec-cubiertas-calc.js?v=1020"></script>
+    <script src="ejec-rev-fachada-calc.js?v=1020"></script>
+    <script src="ejec-tabiqueria-calc.js?v=1020"></script>
+    <script src="ejec-pavimentos-calc.js?v=1020"></script>
+    <script src="ejec-rampas-escaleras-calc.js?v=1020"></script>
+    <script src="ejec-fontaneria-calc.js?v=1020"></script>
+    <script src="ejec-carpinteria-ext-calc.js?v=1020"></script>
+    <script src="ejec-saneamiento-calc.js?v=1020"></script>
+    <script src="ejec-calefaccion-calc.js?v=1020"></script>
+    <script src="ejec-aire-acondicionado-calc.js?v=1020"></script>
+    <script src="ejec-electricidad-calc.js?v=1020"></script>
+    <script src="ejec-est-acero-calc.js?v=1020"></script>
+    <script src="ejec-piscinas-calc.js?v=1020"></script>
+    <script src="ensayos-est-acero-calc.js?v=1020"></script>
+    <script src="app.js?v=1020"></script>
 </body>
 </html>
