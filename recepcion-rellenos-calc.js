@@ -50,6 +50,39 @@ window.renderRecepcionRellenosCalc = function(container, materialId) {
         { id: "geo_otras", name: "Otra característica (especificar)", custom: true }
     ];
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const tierras = inst.tipo === 'Tierras, zahorras y áridos';
+            const caracteristicas = [], docs = [];
+            if (inst.tipo) {
+                (tierras ? caractTierras : caractGeotextiles).forEach(car => {
+                    const c = (inst.caract || {})[car.id] || {};
+                    const label = car.custom ? (c.label && c.label !== car.name ? c.label : '') : car.name;
+                    if (car.custom && !label && !c.valor && !c.verificado) return;
+                    caracteristicas.push({ label, valor: c.valor || '', verificado: !!c.verificado });
+                });
+                Object.keys(inst.caract || {}).forEach(id => {
+                    const c = inst.caract[id];
+                    if (!id.startsWith('car_cust_') || !c || (c.subType && c.subType !== inst.tipo)) return;
+                    caracteristicas.push({ label: c.label || '', valor: c.valor || '', verificado: !!c.verificado });
+                });
+                (tierras ? docsTierras : docsGeotextiles).forEach(doc => {
+                    const c = (inst.checks || {})[doc.id] || {};
+                    const label = doc.custom ? (c.label && c.label !== 'Otros' ? c.label : '') : doc.name;
+                    if (doc.custom && !label && !c.status && !c.date) return;
+                    docs.push({ fase: doc.phase, label, estado: H.estadoDoc(c.status), fecha: c.date || '' });
+                });
+            }
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Suministro', meta: [['Tipo de material', inst.tipo], ['Ubicación / destino', inst.ubicacion], ['Procedencia', inst.procedencia]], caracteristicas, docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        if (d.observaciones) html += H.notasHtml([['Observaciones generales', d.observaciones]]);
+        return { html, resumen: [H.plural(n, 'suministro', 'suministros'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">

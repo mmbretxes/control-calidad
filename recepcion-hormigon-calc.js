@@ -37,6 +37,39 @@ window.renderRecepcionHormigonCalc = function(container, materialId) {
         }
     };
 
+    // Documentos exigibles de un hormigón según origen, distintivo, dispersión e impermeabilidad
+    function documentosDe(inst) {
+        const docs = JSON.parse(JSON.stringify(database[inst.origin === 'obra' ? 'obra' : 'central'][inst.dcor ? 'dcorTrue' : 'dcorFalse']));
+        if (inst.waterproof) docs.unshift({ id: "perm1", phase: "Pre-Suministro", name: "Certificado de Ensayo de Permeabilidad al Agua (UNE-EN 12390-8)", desc: "Validez máxima de 6 meses de antigüedad." });
+        if (!inst.dcor && inst.dispCert && inst.origin === 'central') docs.unshift({ id: "disp1", phase: "Pre-Suministro", name: "Certificado de Desviación Típica de la Central", desc: "Para aplicar el Caso 1 de control estadístico (Art. 57.5.4.3)." });
+        const pre = docs.filter(d => d.phase === "Pre-Suministro"), dur = docs.filter(d => d.phase === "Durante Suministro");
+        pre.push({ id: "pre_otros", phase: "Pre-Suministro", name: "Otros", desc: "", isOther: true });
+        dur.push({ id: "dur_otros", phase: "Durante Suministro", name: "Otros", desc: "", isOther: true });
+        return [...pre, ...dur, { id: "custom_0", phase: "Final Suministro", name: "Otros", desc: "", isOther: true }];
+    }
+
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const docs = [];
+            documentosDe(inst).forEach(doc => {
+                const c = (inst.checks || {})[doc.id] || {};
+                const label = doc.isOther ? (c.label || '') : doc.name;
+                if (doc.isOther && !label && !c.status && !c.date) return;
+                docs.push({ fase: doc.phase, label, estado: H.estadoDoc(c.status), fecha: c.date || '' });
+            });
+            const meta = [['Origen', inst.origin === 'obra' ? 'Hecho en obra' : 'De central'], ['Distintivo de calidad', inst.dcor ? 'Con distintivo DCOR' : 'Sin distintivo']];
+            if (!inst.dcor && inst.origin !== 'obra') meta.push(['Dispersión certificada', inst.dispCert ? 'Aporta certificado' : 'No aporta']);
+            meta.push(['Impermeabilidad', inst.waterproof ? 'Requiere impermeabilidad' : 'Estándar']);
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Hormigón', meta, docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        if (d.observaciones) html += H.notasHtml([['Observaciones generales', d.observaciones]]);
+        return { html, resumen: [H.plural(n, 'hormigón', 'hormigones'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">

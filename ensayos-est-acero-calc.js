@@ -1,3 +1,31 @@
+// Plan de ensayos de estructuras de acero (Código Estructural RD 470/2021), a partir de los parámetros guardados
+window.planEnsayosAcero = function (p) {
+    p = p || {};
+    const tonsNum = parseFloat(p.tons) || 0;
+    const weldMetersNum = parseFloat(p.weldMeters) || 0;
+    const buttPctNum = parseFloat(p.buttPct) || 0;
+    const lotVol = tonsNum > 0 ? Math.ceil(tonsNum / 20) : 0;
+    const isExento = p.garantia === 'true';
+    let mecTests = "";
+    if (lotVol === 0) mecTests = "0 ensayos";
+    else if (isExento) mecTests = "Exento (0 ensayos)";
+    else mecTests = `${lotVol} ensayo(s) de Tracción y ${lotVol} ensayo(s) de Resiliencia Charpy (Total: ${lotVol * 2} ensayos)`;
+    const locMult = 1.5;
+    let ptmtPct = 15, utrtPct = 30;
+    if (p.exc === 'EXC1') { ptmtPct = 0; utrtPct = 0; }
+    else if (p.exc === 'EXC2') { ptmtPct = Math.round(10 * locMult); utrtPct = Math.round(20 * locMult); }
+    else if (p.exc === 'EXC3') { ptmtPct = Math.round(20 * locMult); utrtPct = Math.round(50 * locMult); }
+    else if (p.exc === 'EXC4') { ptmtPct = 100; utrtPct = 100; }
+    ptmtPct = Math.min(100, ptmtPct);
+    utrtPct = Math.min(100, utrtPct);
+    const ptmtMeters = Math.round(weldMetersNum * (ptmtPct / 100));
+    const buttMeters = Math.round(weldMetersNum * (buttPctNum / 100));
+    const utApplicable = p.thick === 'true' && buttPctNum > 0 && p.exc !== 'EXC1';
+    const effectiveUtPct = utApplicable ? utrtPct : 0;
+    const utrtMeters = utApplicable ? Math.round(buttMeters * (effectiveUtPct / 100)) : 0;
+    return { tonsNum, lotVol, isExento, mecTests, weldMetersNum, ptmtPct, ptmtMeters, utApplicable, effectiveUtPct, utrtMeters };
+};
+
 window.renderEstAceroCalc = function(container, matId) {
     const rawHTML = `
     <div class="tabs" style="display:flex;gap:5px;margin-bottom:20px;border-bottom:2px solid #f0f0f0;">
@@ -139,6 +167,44 @@ window.renderEstAceroCalc = function(container, matId) {
         tons: '', garantia: 'true', exc: 'EXC2', weldMeters: '', buttPct: '', thick: 'true'
     };
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(matId, (d, soloDatos, H) => {
+        const p = d.calcParams || {};
+        const plan = window.planEnsayosAcero(p);
+        let html = '';
+        const hayCalculo = plan.tonsNum > 0 || plan.weldMetersNum > 0;
+        if (hayCalculo || !soloDatos) {
+            const m = (n) => n.toLocaleString('es-ES') + ' m';
+            html += H.subtitulo('Datos de partida');
+            html += H.ficha([
+                ['Toneladas totales', p.tons ? p.tons + ' t' : ''], ['Garantía del acero', p.garantia === 'false' ? 'Sin Marca N' : 'Con Marca N (DCOR)'],
+                ['Clase de ejecución', p.exc || ''], ['Longitud de soldaduras', p.weldMeters ? p.weldMeters + ' m' : ''],
+                ['Soldaduras a tope', p.buttPct ? p.buttPct + ' %' : ''], ['Espesor ≥ 8 mm (tope)', p.thick === 'false' ? 'No (t < 8 mm)' : 'Sí (t ≥ 8 mm)']
+            ], { soloDatos });
+            html += H.subtitulo('Plan de ensayos (Código Estructural RD 470/2021)');
+            html += H.tabla([{ t: 'Control', w: '45%' }, { t: 'Alcance', w: '55%' }], [
+                { grupo: '1. Recepción del acero base' },
+                ['Lotes de recepción', H.esc(`${plan.lotVol} lote(s) (máx. 20 t / lote)`)],
+                ['Ensayos mecánicos', H.esc(plan.mecTests)],
+                { grupo: '2. Soldaduras (montaje en obra)' },
+                ['Inspección visual (VT)', H.esc(`100 % (${m(plan.weldMetersNum)})`)],
+                ['Ensayos superficiales (PT / MT)', H.esc(`${m(plan.ptmtMeters)} (${plan.ptmtPct} %)`)],
+                ['Ensayos volumétricos (UT / RT)', H.esc(plan.utApplicable ? `${m(plan.utrtMeters)} (${plan.effectiveUtPct} %)` : 'Exento / 0 m')]
+            ]);
+        }
+        const conDatos = (e) => e.referencia || e.tipo || e.fecha || e.laboratorio || e.observaciones;
+        const ensayos = (d.ensayosEnd || []).filter(e => !soloDatos || conDatos(e) || e.correcto);
+        if (ensayos.length) {
+            html += H.subtitulo('Ensayos realizados');
+            html += H.tabla([{ t: 'Lote / referencia', w: '19%' }, { t: 'Tipo de ensayo', w: '17%' }, { t: 'Fecha', w: '11%' }, { t: 'Laboratorio', w: '16%' }, { t: 'Resultado', w: '14%' }, { t: 'Observaciones', w: '23%' }],
+                ensayos.map(e => {
+                    const res = e.correcto ? 'Correcto' : (conDatos(e) ? 'No correcto' : '');
+                    return { clase: res === 'No correcto' ? 'pd-fila-nc' : '', celdas: [H.esc(e.referencia), H.esc(e.tipo), H.esc(H.fecha(e.fecha)), H.esc(e.laboratorio), H.resultado(res), H.esc(e.observaciones)] };
+                }));
+        }
+        return { html, resumen: [H.plural(ensayos.length, 'ensayo', 'ensayos'), hayCalculo ? `${plan.lotVol} lote(s) de acero` : ''] };
+    });
+
     window.showAceroTab = function(tabName, btn) {
         wrapper.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         wrapper.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -183,39 +249,7 @@ window.renderEstAceroCalc = function(container, matId) {
             thick: wrapper.querySelector('#aceroThick').value
         };
 
-        const tonsNum = parseFloat(data.calcParams.tons) || 0;
-        const weldMetersNum = parseFloat(data.calcParams.weldMeters) || 0;
-        const buttPctNum = parseFloat(data.calcParams.buttPct) || 0;
-
-        const lotVol = tonsNum > 0 ? Math.ceil(tonsNum / 20) : 0;
-        const isExento = data.calcParams.garantia === 'true';
-        let mecTests = "";
-        if (lotVol === 0) {
-            mecTests = "0 ensayos";
-        } else if (isExento) {
-            mecTests = "Exento (0 ensayos)";
-        } else {
-            mecTests = `${lotVol} ensayo(s) de Tracción y ${lotVol} ensayo(s) de Resiliencia Charpy (Total: ${lotVol * 2} ensayos)`;
-        }
-
-        const locMult = 1.5;
-        let ptmtPct = 15;
-        let utrtPct = 30;
-
-        if (data.calcParams.exc === 'EXC1') { ptmtPct = 0; utrtPct = 0; }
-        else if (data.calcParams.exc === 'EXC2') { ptmtPct = Math.round(10 * locMult); utrtPct = Math.round(20 * locMult); }
-        else if (data.calcParams.exc === 'EXC3') { ptmtPct = Math.round(20 * locMult); utrtPct = Math.round(50 * locMult); }
-        else if (data.calcParams.exc === 'EXC4') { ptmtPct = 100; utrtPct = 100; }
-
-        ptmtPct = Math.min(100, ptmtPct);
-        utrtPct = Math.min(100, utrtPct);
-
-        const ptmtMeters = Math.round(weldMetersNum * (ptmtPct / 100));
-        const buttMeters = Math.round(weldMetersNum * (buttPctNum / 100));
-        
-        let utApplicable = data.calcParams.thick === 'true' && buttPctNum > 0 && data.calcParams.exc !== 'EXC1';
-        let effectiveUtPct = utApplicable ? utrtPct : 0;
-        let utrtMeters = utApplicable ? Math.round(buttMeters * (effectiveUtPct / 100)) : 0;
+        const { lotVol, isExento, mecTests, weldMetersNum, ptmtPct, ptmtMeters, utApplicable, effectiveUtPct, utrtMeters } = window.planEnsayosAcero(data.calcParams);
 
         let resHtml = `
             <h4 style="margin-top:0;">1. Control de Recepción del Acero Base</h4>

@@ -56,7 +56,9 @@
         .pd-doc table.pd-cab td.pd-cab-nombre { font-weight: bold !important; color: #111827 !important; }
         .pd-doc table.pd-cab td.pd-cab-der { border-left: none !important; text-align: right !important; width: 30%; color: #374151 !important; }
         .pd-doc .pd-meta { font-size: 8pt; color: #4b5563 !important; padding: 1.2mm 2.5mm; border-left: 2.5pt solid #cbd5e1; break-after: avoid; }
+        .pd-doc .pd-meta { break-inside: avoid; page-break-inside: avoid; }
         .pd-doc .pd-meta span { margin-right: 6mm; }
+        .pd-doc thead th { overflow-wrap: normal !important; word-break: normal !important; hyphens: manual; }
         .pd-doc .pd-meta b { color: #374151 !important; }
         .pd-doc .pd-subtitulo { font-size: 7.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; color: ${AZUL} !important; margin: 2.5mm 0 1mm 0; break-after: avoid; }
         .pd-doc .pd-tabla { margin-top: 1.5mm !important; }
@@ -70,6 +72,10 @@
         .pd-doc .pd-res-na { color: #6b7280 !important; font-weight: normal; }
         .pd-doc .pd-res-pend { color: #92400e !important; font-weight: normal; }
         .pd-doc .pd-centro { text-align: center !important; }
+        .pd-doc .pd-derecha { text-align: right !important; }
+        .pd-doc .pd-detalle { font-size: 7.5pt !important; color: #6b7280 !important; margin-top: 0.6mm; }
+        .pd-doc .pd-aviso { font-size: 7.5pt !important; color: #b91c1c !important; font-weight: bold; margin-top: 0.6mm; }
+        .pd-doc tr.pd-fila-total td { background: #f1f4f8 !important; border-top: 1pt solid #9ca3af !important; }
         .pd-doc .pd-nowrap { white-space: nowrap; }
         .pd-fotos { margin-top: 1.5mm; }
         .pd-doc img.pd-foto { height: 2.3cm !important; width: auto; margin: 0 1.5mm 0 0; border: 0.6pt solid #d1d5db !important; border-radius: 0 !important; vertical-align: top; }
@@ -177,42 +183,111 @@
                 const label = doc.custom ? (generica(d.label, doc.name) ? '' : d.label) : doc.name;
                 return { fase: doc.phase, label, estado: d.status || '', fecha: d.date || '', custom: doc.custom };
             }).filter(d => !(d.custom && !d.label && !d.estado && !d.fecha));
-            const carF = soloDatos ? car.filter(c => c.valor || c.verificado) : car;
-            const docF = soloDatos ? docs.filter(d => d.estado || d.fecha) : docs;
-            if (soloDatos && !carF.length && !docF.length && !inst.observaciones) return;
-            nSum++; nDocs += docs.length; nDocsOk += docs.filter(d => d.estado && d.estado !== 'Pendiente').length;
-
             const meta = [];
             (cfg.campos || []).forEach(c => { if (inst[c.id]) meta.push([c.label, inst[c.id]]); });
             if (cfg.selectorDcor) meta.push(['Distintivo de calidad', inst.dcor ? 'Con distintivo DCOR' : 'Sin distintivo']);
             if (cfg.tipos && inst.tipo) meta.push([cfg.tipos.label, inst.tipo]);
-
-            let cuerpo = '';
-            if (carF.length) {
-                cuerpo += `<div class="pd-subtitulo">Características exigidas</div>
-                <table class="pd-tabla"><colgroup><col style="width:52%"><col style="width:33%"><col style="width:15%"></colgroup>
-                <thead><tr><th>Característica</th><th>Valor de proyecto</th><th class="pd-centro">Verificado</th></tr></thead>
-                <tbody>${carF.map(c => `<tr><td>${esc(c.label || 'Otra característica')}</td><td>${esc(c.valor)}</td><td class="pd-centro">${c.verificado ? '<span class="pd-res pd-res-ok">✓</span>' : '—'}</td></tr>`).join('')}</tbody></table>`;
-            }
-            if (docF.length) {
-                let faseActual = null;
-                cuerpo += `<div class="pd-subtitulo">Documentación</div>
-                <table class="pd-tabla"><colgroup><col style="width:62%"><col style="width:22%"><col style="width:16%"></colgroup>
-                <thead><tr><th>Documento / certificado</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>`;
-                docF.forEach(d => {
-                    if (d.fase !== faseActual) { faseActual = d.fase; cuerpo += `<tr class="pd-grupo"><td colspan="3">${esc(d.fase || '')}</td></tr>`; }
-                    cuerpo += `<tr><td>${esc(d.label || 'Otra documentación')}</td><td>${resultado(d.estado)}</td><td class="pd-nowrap">${esc(fecha(d.fecha))}</td></tr>`;
-                });
-                cuerpo += `</tbody></table>`;
-            }
-            if (inst.observaciones) cuerpo += notasHtml([['Observaciones', inst.observaciones]]);
-            html += `<div class="pd-registro">
-                ${cabecera(inst.customName || 'Suministro', '')}
-                ${meta.length ? `<div class="pd-meta">${meta.map(([k, v]) => `<span><b>${esc(k)}:</b> ${esc(v)}</span>`).join('')}</div>` : ''}
-                ${cuerpo}</div>`;
+            const b = bloqueSuministro({ nombre: inst.customName || 'Suministro', meta, caracteristicas: car, docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            nSum++; nDocs += b.nDocs; nDocsOk += b.nDocsOk;
+            html += b.html;
         });
         return { html, resumen: [plural(nSum, 'suministro', 'suministros'), nDocs ? `${nDocsOk} de ${nDocs} documentos resueltos` : ''] };
     }
+
+
+    // Bloque de un suministro: { nombre, meta: [[k, v]], caracteristicas: [{label, valor, verificado}], docs: [{fase, label, estado, fecha}], obs }
+    // Devuelve null si no hay nada que imprimir con "solo datos".
+    function bloqueSuministro(s, soloDatos) {
+        const car = (s.caracteristicas || []);
+        const docs = (s.docs || []);
+        const carF = soloDatos ? car.filter(c => c.valor || c.verificado) : car;
+        const docF = soloDatos ? docs.filter(d => d.estado || d.fecha) : docs;
+        if (soloDatos && !carF.length && !docF.length && !s.obs && !(s.extra || '')) return null;
+        let cuerpo = '';
+        if (carF.length) {
+            cuerpo += `<div class="pd-subtitulo">${esc(s.tituloCaract || 'Características exigidas')}</div>
+            <table class="pd-tabla"><colgroup><col style="width:52%"><col style="width:33%"><col style="width:15%"></colgroup>
+            <thead><tr><th>Característica</th><th>${esc(s.cabeceraValor || 'Valor de proyecto')}</th><th class="pd-centro">Verificado</th></tr></thead>
+            <tbody>${carF.map(c => `<tr><td>${esc(c.label || 'Otra característica')}</td><td>${esc(c.valor)}</td><td class="pd-centro">${c.verificado ? '<span class="pd-res pd-res-ok">✓</span>' : '—'}</td></tr>`).join('')}</tbody></table>`;
+        }
+        if (docF.length) {
+            let faseActual = null;
+            cuerpo += `<div class="pd-subtitulo">Documentación</div>
+            <table class="pd-tabla"><colgroup><col style="width:62%"><col style="width:22%"><col style="width:16%"></colgroup>
+            <thead><tr><th>Documento / certificado</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>`;
+            docF.forEach(d => {
+                if (d.fase && d.fase !== faseActual) { faseActual = d.fase; cuerpo += `<tr class="pd-grupo"><td colspan="3">${esc(d.fase)}</td></tr>`; }
+                cuerpo += `<tr><td>${esc(d.label || 'Otra documentación')}</td><td>${resultado(d.estado)}</td><td class="pd-nowrap">${esc(fecha(d.fecha))}</td></tr>`;
+            });
+            cuerpo += `</tbody></table>`;
+        }
+        cuerpo += s.extra || '';
+        if (s.obs) cuerpo += notasHtml([['Observaciones', s.obs]]);
+        return {
+            html: `<div class="pd-registro">${cabecera(s.nombre, s.derecha || '')}${metaHtml(s.meta)}${cuerpo}</div>`,
+            nDocs: docs.length, nDocsOk: docs.filter(d => d.estado && d.estado !== 'Pendiente').length
+        };
+    }
+
+    function metaHtml(meta) {
+        const m = (meta || []).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+        return m.length ? `<div class="pd-meta">${m.map(([k, v]) => `<span><b>${esc(String(k).replace(/:$/, ''))}:</b> ${esc(v)}</span>`).join('')}</div>` : '';
+    }
+
+    // Tabla genérica: columnas [{t: 'Título', w: '30%', clase}] y filas [[celdaHTML, ...]] o {celdas, clase}
+    function tabla(columnas, filas, opciones = {}) {
+        if (!filas.length) return '';
+        return `<table class="pd-tabla ${opciones.clase || ''}"><colgroup>${columnas.map(c => `<col style="width:${c.w || 'auto'}">`).join('')}</colgroup>
+            ${opciones.sinCabecera ? '' : `<thead><tr>${columnas.map(c => `<th class="${c.clase || ''}">${esc(c.t)}</th>`).join('')}</tr></thead>`}
+            <tbody>${filas.map(f => {
+                const celdas = Array.isArray(f) ? f : f.celdas;
+                const clase = Array.isArray(f) ? '' : (f.clase || '');
+                if (!Array.isArray(f) && f.grupo) return `<tr class="pd-grupo"><td colspan="${columnas.length}">${f.grupo}</td></tr>`;
+                return `<tr class="${clase}">${celdas.map((c, k) => `<td class="${columnas[k] && columnas[k].clase || ''}">${c === undefined || c === null ? '' : c}</td>`).join('')}</tr>`;
+            }).join('')}</tbody></table>`;
+    }
+
+    // Ficha de pares etiqueta/valor en dos columnas (como los ensayos)
+    function ficha(pares, opciones = {}) {
+        const p = pares.filter(([, v]) => !opciones.soloDatos || (v !== undefined && v !== null && String(v).trim() !== ''));
+        if (!p.length) return '';
+        let filas = '';
+        for (let j = 0; j < p.length; j += 2) {
+            const a = p[j], b = p[j + 1];
+            filas += `<tr><th>${esc(a[0])}</th><td>${a[2] ? a[1] : esc(a[1])}</td>${b ? `<th>${esc(b[0])}</th><td>${b[2] ? b[1] : esc(b[1])}</td>` : '<td colspan="2"></td>'}</tr>`;
+        }
+        return `<table class="pd-tabla pd-tabla-ficha ${opciones.nc ? 'pd-ficha-nc' : ''}"><colgroup><col style="width:20%"><col style="width:30%"><col style="width:20%"><col style="width:30%"></colgroup><tbody>${filas}</tbody></table>`;
+    }
+
+    // Bloque de zona con tabla de puntos: { nombre, fecha, meta, puntos: [{name, date, val, obs, fotos}], cabeceraObs }
+    function bloquePuntos(z, soloDatos) {
+        const usado = c => c.val || c.obs || c.date || (Array.isArray(c.fotos) && c.fotos.length);
+        const filas = soloDatos ? z.puntos.filter(usado) : z.puntos;
+        if (soloDatos && !filas.length && !z.extra) return null;
+        return `<div class="pd-registro">
+            ${cabecera(z.nombre, esc(fecha(z.fecha || '')))}
+            ${metaHtml(z.meta)}
+            ${filas.length ? `<table class="pd-tabla">
+                <colgroup><col style="width:46%"><col style="width:12%"><col style="width:16%"><col style="width:26%"></colgroup>
+                <thead><tr><th>Punto de inspección</th><th>Fecha</th><th>Resultado</th><th>${esc(z.cabeceraObs || 'Observaciones')}</th></tr></thead>
+                <tbody>${filas.map(c => `<tr class="${claseResultado(c.val) === 'pd-res-ko' ? 'pd-fila-nc' : ''}">
+                    <td>${esc(c.name || 'Punto sin descripción')}${fotos(c.fotos)}</td>
+                    <td class="pd-nowrap">${esc(fecha(c.date))}</td>
+                    <td>${resultado(c.val)}</td>
+                    <td>${esc(c.obs || '')}</td></tr>`).join('')}</tbody>
+            </table>` : ''}${z.extra || ''}</div>`;
+    }
+
+    const H = { esc, fecha, resultado, claseResultado, cabecera: (n, d) => cabecera(n, d), metaHtml, notasHtml: (n) => notasHtml(n), tabla, ficha, fotos, plural,
+        bloqueSuministro: (s, sd) => bloqueSuministro(s, sd), bloquePuntos, subtitulo: (t) => `<div class="pd-subtitulo">${esc(t)}</div>`,
+        estadoDoc: (v) => (['Aceptado', 'Recibido'].includes(v) ? 'Entregado' : ['No Entregado', 'No aplica'].includes(v) ? 'No procede' : (v || '')),
+        vacio: (v) => v === undefined || v === null || String(v).trim() === '' };
+
+    // Registro de la impresión de una ficha especial: H.registrar(materialId, (data, soloDatos, H) => ({ html, resumen: [] }))
+    window.registrarImpresionFicha = function (materialId, imprimir) {
+        (window.__configFichas = window.__configFichas || {})[materialId] = { tipo: 'propio', imprimir };
+    };
 
     // ---------------------------------------------------------------- Listas de ensayos (fichas estándar)
     function capituloLista(tpl, data, soloDatos) {
@@ -254,7 +329,7 @@
     function tieneGenerador(tpl) {
         if (tpl.sections) return tpl.sections.every(s => s.type === 'dynamic_list');
         const c = configDe(tpl);
-        return !!(c && (c.tipo === 'zonas' || c.tipo === 'suministros'));
+        return !!(c && (c.tipo === 'zonas' || c.tipo === 'suministros' || c.tipo === 'propio'));
     }
 
     function capitulo(tpl, soloDatos) {
@@ -262,6 +337,7 @@
         if (tpl.sections) return capituloLista(tpl, data, soloDatos);
         const c = configDe(tpl);
         if (c.tipo === 'zonas') return capituloZonas(tpl, data, c.cfg, soloDatos);
+        if (c.tipo === 'propio') { const r = c.imprimir(data, soloDatos, H) || {}; return { html: r.html || '', resumen: r.resumen || [] }; }
         return capituloSuministros(tpl, data, c.cfg, soloDatos);
     }
 

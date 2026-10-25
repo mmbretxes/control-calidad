@@ -57,6 +57,22 @@ window.renderRecepcionFerrallaCalc = function(container, materialId) {
         ]
     };
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const docs = database[inst.dcor ? 'dcorTrue' : 'dcorFalse'].map(doc => {
+                const c = (inst.checks || {})[doc.id] || {};
+                const label = doc.custom ? ((c.label && c.label !== 'Otros') ? c.label : '') : doc.name;
+                return { fase: doc.phase, label, estado: c.status || '', fecha: c.date || '', custom: doc.custom };
+            }).filter(x => !(x.custom && !x.label && !x.estado && !x.fecha));
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Suministro de ferralla', meta: [['Ubicación', inst.ubicacion], ['Distintivo de calidad', inst.dcor ? 'Con distintivo DCOR' : 'Sin distintivo']], docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        return { html, resumen: [H.plural(n, 'suministro', 'suministros'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">

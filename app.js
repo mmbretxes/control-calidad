@@ -1664,6 +1664,10 @@ function listarNoConformidades(matId) {
         if (v.aprobado === false && v.fest !== undefined) {
             lista.push({ matId, zona: c.zona || 'Lote de ensayo', idx: c.idx, cid: clave, punto: 'Resistencia estimada inferior a fck', resultado: 'No conforme', fecha: '', obs: '' });
         }
+        // Ensayos de estructuras de acero: casilla "¿Resultado correcto?" sin marcar en un ensayo ya realizado
+        if (v.correcto === false && 'referencia' in v && 'tipo' in v && (v.tipo || v.fecha)) {
+            lista.push({ matId, zona: (v.referencia || '').toString(), idx: c.idx, cid: clave, punto: (v.tipo || 'Ensayo').toString(), resultado: 'No correcto', fecha: v.fecha || '', obs: v.observaciones || '' });
+        }
         Object.keys(v).forEach(k => { if (k !== '_backup') recorrer(v[k], k, c); });
     })(data, '', {});
     return lista;

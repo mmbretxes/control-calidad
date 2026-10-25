@@ -23,6 +23,28 @@ window.renderRecepcionForjadosCalc = function(container, materialId) {
         { id: "fin_otros", phase: "Final Suministro", name: "Otros", desc: "", isOther: true }
     ];
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const caracteristicas = [
+                { label: 'Bovedilla colaborante', valor: inst.bovColab_val || '', verificado: !!inst.bovColab_chk },
+                { label: 'Reacción a fuego bovedillas EPS', valor: inst.reacEps_val || '', verificado: !!inst.reacEps_chk },
+                { label: 'Expansión humedad bov. cerámica', valor: inst.expHum_val || '', verificado: !!inst.expHum_chk }
+            ];
+            if (inst.otra_exigida || inst.otra_val || inst.otra_chk) caracteristicas.push({ label: inst.otra_exigida || '', valor: inst.otra_val || '', verificado: !!inst.otra_chk });
+            const docs = documentosRequeridos.map(doc => {
+                const c = (inst.checks || {})[doc.id] || {};
+                return { fase: doc.phase, label: doc.isOther ? (c.label || '') : doc.name, estado: c.status || '', fecha: c.date || '', custom: doc.isOther };
+            }).filter(x => !(x.custom && !x.label && !x.estado && !x.fecha));
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Forjado', meta: [['Tipo de forjado', inst.forjadoType], ['Canto requerido', inst.canto]], caracteristicas, cabeceraValor: 'Valor requerido', docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        if (d.observaciones) html += H.notasHtml([['Observaciones generales', d.observaciones]]);
+        return { html, resumen: [H.plural(n, 'forjado', 'forjados'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">

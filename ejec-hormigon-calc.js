@@ -1,3 +1,25 @@
+// Lotes y UIs teóricos de la ejecución de estructuras de hormigón, a partir de los datos guardados
+window.teoricoEjecHormigon = function (data) {
+    const n = (v) => parseFloat(v) || 0;
+    const c_el = n(data.cim_elements), c_ar = n(data.cim_area), c_vo = n(data.cim_volume);
+    const v_fl = n(data.vert_floors), v_el = n(data.vert_elements), v_vo = n(data.vert_volume);
+    const h_fl = n(data.horiz_floors), h_ar = n(data.horiz_area), h_vo = n(data.horiz_volume);
+    const lotesCim = Math.max(Math.ceil(c_ar / 250), Math.ceil(c_el / 10));
+    const uisCim = c_vo < 350 ? c_el : Math.max(Math.ceil(c_el / 10), Math.ceil(c_vo / 250));
+    const volVertPerFloor = v_fl > 0 ? v_vo / v_fl : 0;
+    const elemVertPerFloor = v_fl > 0 ? v_el / v_fl : 0;
+    const lotesVert = Math.max(1, Math.ceil(volVertPerFloor / 100)) * v_fl;
+    const uisVert = Math.max(Math.ceil(elemVertPerFloor / 10), Math.ceil(volVertPerFloor / 100)) * v_fl;
+    const areaHorizPerFloor = h_fl > 0 ? h_ar / h_fl : 0;
+    const volHorizPerFloor = h_fl > 0 ? h_vo / h_fl : 0;
+    const lotesHoriz = Math.max(Math.ceil(areaHorizPerFloor / 250), Math.ceil(volHorizPerFloor / 250)) * h_fl;
+    const uisHoriz = Math.max(1, Math.ceil(areaHorizPerFloor / 250)) * h_fl;
+    return {
+        cim: { lotes: lotesCim, uis: uisCim }, vert: { lotes: lotesVert, uis: uisVert }, horiz: { lotes: lotesHoriz, uis: uisHoriz },
+        totalLotes: lotesCim + lotesVert + lotesHoriz, totalUis: uisCim + uisVert + uisHoriz
+    };
+};
+
 window.renderEjecHormigonCalc = function(container, materialId) {
     const projectData = currentProject;
     if (!projectData.formData) projectData.formData = {};
@@ -137,6 +159,51 @@ window.renderEjecHormigonCalc = function(container, materialId) {
             calculateAndRender();
         });
     }
+
+    // Impresión desde los datos
+    const TITULOS_EH = { cim: 'Cimentación', vert: 'Estructura vertical', horiz: 'Estructura horizontal' };
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        const t = window.teoricoEjecHormigon(d);
+        const checks = d.checks || {};
+        let html = '';
+        const partida = {
+            cim: [[d.cim_elements, 'elementos'], [d.cim_area, 'm²'], [d.cim_volume, 'm³']],
+            vert: [[d.vert_floors, 'plantas'], [d.vert_elements, 'pilares'], [d.vert_volume, 'm³']],
+            horiz: [[d.horiz_floors, 'plantas'], [d.horiz_area, 'm²'], [d.horiz_volume, 'm³']]
+        };
+        const filasTeo = ['cim', 'vert', 'horiz'].filter(k => !soloDatos || t[k].lotes > 0 || t[k].uis > 0).map(k => [
+            H.esc(TITULOS_EH[k]),
+            H.esc(partida[k].filter(([v]) => v !== '' && v !== undefined && v !== null).map(([v, u]) => `${String(v).replace('.', ',')} ${u}`).join(' · ')),
+            String(t[k].lotes), String(t[k].uis)
+        ]);
+        if (filasTeo.length) {
+            filasTeo.push({ clase: 'pd-fila-total', celdas: ['<b>Total estructura</b>', '', `<b>${t.totalLotes}</b>`, `<b>${t.totalUis}</b>`] });
+            html += H.subtitulo('Lotes y unidades de inspección teóricos');
+            html += H.tabla([{ t: 'Tipo estructural', w: '28%' }, { t: 'Datos de partida', w: '44%' }, { t: 'Lotes', w: '14%', clase: 'pd-centro' }, { t: 'UIs', w: '14%', clase: 'pd-centro' }], filasTeo);
+        }
+        let nUis = 0, nPuntos = 0, nRev = 0;
+        ['cim', 'vert', 'horiz'].forEach(type => {
+            const n = (d.uisCreated || {})[type] || 0;
+            let bloques = '';
+            for (let i = 1; i <= n; i++) {
+                const puntos = checklists[type].map((name, idx) => {
+                    const c = checks[`${type}_ui${i}_c${idx}`] || {};
+                    return { name, val: c.status || '', date: c.date || '' };
+                });
+                Object.keys(checks).filter(k => k.startsWith(`${type}_ui${i}_cust_`)).forEach(k => {
+                    const c = checks[k] || {};
+                    if (c.label || c.status || c.date) puntos.push({ name: c.label || '', val: c.status || '', date: c.date || '' });
+                });
+                const nombre = `UI ${i}` + (checks[`${type}_ui${i}_name`] ? ' · ' + checks[`${type}_ui${i}_name`] : '');
+                const b = H.bloquePuntos({ nombre, fecha: checks[`${type}_ui${i}_date`], meta: [['Lote', checks[`${type}_ui${i}_lote`]]], puntos }, soloDatos);
+                if (!b) continue;
+                nUis++; nPuntos += puntos.length; nRev += puntos.filter(p => p.val).length;
+                bloques += b;
+            }
+            if (bloques) html += H.subtitulo('Inspecciones · ' + TITULOS_EH[type]) + bloques;
+        });
+        return { html, resumen: [t.totalLotes ? `${t.totalLotes} lotes teóricos` : '', H.plural(nUis, 'unidad de inspección', 'unidades de inspección'), nPuntos ? `${nRev} de ${nPuntos} puntos revisados` : ''] };
+    });
 
     function calculateAndRender() {
         // Valores base para el calculo (parsear los vacíos a 0 para que no fallen las divisiones)

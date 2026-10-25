@@ -50,6 +50,32 @@ window.renderRecepcionAislantesCalc = function(container, materialId) {
         { id: "fin_otros", phase: "Final", name: "Otros", desc: "", isOther: true }
     ];
 
+    // Impresión desde los datos
+    const CARACT_AISLANTES = [
+        ['res_termica', 'Resistencia térmica (m²K/W)'], ['espesor', 'Espesor (mm / m)'], ['cond_termica', 'Conductividad térmica λ (W/mK)'],
+        ['reaccion_fuego', 'Reacción al fuego'], ['res_flujo', 'Resistencia flujo del aire (kPa·s/m²)'], ['res_compresion', 'Resistencia a compresión (kPa)'],
+        ['no_hidrofilo', 'No hidrófilo']
+    ];
+    const FASES_AISLANTES = { Previo: 'Previo al suministro', Durante: 'Durante el suministro', Final: 'Final del suministro' };
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const caracteristicas = CARACT_AISLANTES.map(([k, label]) => ({ label, valor: inst[k + '_val'] || '', verificado: !!inst[k + '_chk'] }));
+            if (inst.otra_exigida || inst.otra_val || inst.otra_chk) caracteristicas.push({ label: inst.otra_exigida || '', valor: inst.otra_val || '', verificado: !!inst.otra_chk });
+            const docs = documentosRequeridos.map(doc => {
+                const c = (inst.checks || {})[doc.id] || {};
+                const label = doc.isOther ? (c.label || '') : doc.name;
+                const estado = c.status === 'Aceptado' ? 'Entregado' : c.status === 'No Entregado' ? 'No procede' : (c.status || '');
+                return { fase: FASES_AISLANTES[doc.phase] || doc.phase, label, estado, fecha: c.date || '', custom: doc.isOther };
+            }).filter(x => !(x.custom && !x.label && !x.estado && !x.fecha));
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Aislante', meta: [['Tipo de aislante', inst.tipoAislante], ['Ubicación', inst.ubicacion]], caracteristicas, cabeceraValor: 'Valor requerido', docs }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        if (d.observaciones) html += H.notasHtml([['Observaciones generales', d.observaciones]]);
+        return { html, resumen: [H.plural(n, 'tipo de aislante', 'tipos de aislante'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">

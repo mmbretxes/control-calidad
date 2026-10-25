@@ -19,6 +19,28 @@ window.renderRecepcionOtrosCalc = function(container, materialId) {
         { id: "doc_otros_fin_otro", phase: "Final Suministro", name: "Otros", desc: "", custom: true }
     ];
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, (d, soloDatos, H) => {
+        let html = '', n = 0, nDocs = 0, nOk = 0;
+        (d.instances || []).forEach(inst => {
+            const caracteristicas = Object.keys(inst.caract || {}).map(id => inst.caract[id] || {})
+                .filter(c => c.label || c.valor || c.verificado)
+                .map(c => ({ label: c.label || '', valor: c.valor || '', verificado: !!c.verificado }));
+            const docs = [];
+            baseDocs.forEach(doc => {
+                const c = (inst.checks || {})[doc.id] || {};
+                const label = doc.custom ? (c.label && c.label !== 'Otros' ? c.label : '') : doc.name;
+                if (doc.custom && !label && !c.status && !c.date) return;
+                docs.push({ fase: doc.phase, label, estado: H.estadoDoc(c.status), fecha: c.date || '' });
+            });
+            const b = H.bloqueSuministro({ nombre: inst.customName || 'Suministro', meta: [['Ubicación / destino', inst.ubicacion]], caracteristicas, docs, obs: inst.observaciones }, soloDatos);
+            if (!b) return;
+            n++; nDocs += b.nDocs; nOk += b.nDocsOk; html += b.html;
+        });
+        if (d.observaciones) html += H.notasHtml([['Observaciones generales', d.observaciones]]);
+        return { html, resumen: [H.plural(n, 'suministro', 'suministros'), nDocs ? `${nOk} de ${nDocs} documentos resueltos` : ''] };
+    });
+
     container.innerHTML = `
         <div class="card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">

@@ -966,6 +966,107 @@ window.renderHormigonCalc = function(container, matId) {
         };
     }
 
+    // Lotes de acero corrugado a partir de volúmenes, cuantías y series guardadas
+    function calculoAceroDesdeDatos(d) {
+        const cats = [['cimentaciones', 'Cimentaciones'], ['compresion', 'Elementos a compresión'], ['forjados', 'Forjados'], ['losaspav', 'Losas pavimento']];
+        let volT = 0, kgT = 0;
+        const desglose = [];
+        cats.forEach(([key, label]) => {
+            let v = 0, k = 0;
+            (d[key] || []).forEach(item => {
+                const vol = parseFloat(item.volumen) || 0;
+                const cuantia = item.cuantiaAcero !== undefined && item.cuantiaAcero !== '' ? parseFloat(item.cuantiaAcero) : DEFAULT_CUANTIAS[key];
+                v += vol; k += vol * cuantia;
+            });
+            volT += v; kgT += k;
+            if (v > 0) desglose.push({ label, vol: v, kg: k });
+        });
+        const pct = (k, def) => (d[k] === undefined || d[k] === '' ? def : parseFloat(d[k]) || 0);
+        const series = [['Fina (< 10 mm)', pct('porcentajeFina', 20)], ['Media (12-20 mm)', pct('porcentajeMedia', 80)], ['Gruesa (25-32 mm)', pct('porcentajeGruesa', 0)], ['Muy gruesa (> 40 mm)', pct('porcentajeMuyGruesa', 0)]]
+            .map(([label, p]) => { const kg = kgT * p / 100; return { label, pct: p, kg, lotes: Math.ceil(kg / 25000) }; });
+        const suma = series.reduce((a, x) => a + x.pct, 0);
+        return { volT, kgT, desglose, series, suma, valido: volT > 0 && suma === 100, lotes: series.reduce((a, x) => a + x.lotes, 0) };
+    }
+
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(matId, (d, soloDatos, H) => {
+        const num = (v, dec = 2) => Number(v).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        const cats = [['cimentaciones', 'Cimentaciones'], ['compresion', 'Elementos a compresión'], ['forjados', 'Forjados'], ['losaspav', 'Losas pavimento']];
+        let html = '';
+        // 1. Programación
+        const filas = [];
+        let tVol = 0, tLot = 0, tAm = 0;
+        cats.forEach(([key, label]) => {
+            (d[key] || []).forEach((item, idx) => {
+                const c = calcularTipoHormigon(key, item);
+                if (!c.hasData && (soloDatos || !(parseFloat(item.volumen) > 0))) return;
+                tVol += c.volumen; tLot += c.numeroLotes; tAm += c.amasadas;
+                const ex = DATOS_EXPOSICION[item.exposicion] || DATOS_EXPOSICION.XC1;
+                const resU = parseFloat(item.resistencia) || 25;
+                const aviso = c.advertencia ? `<div class="pd-aviso">${c.advertencia.replace(/<br>/g, ' ').replace(/<[^>]+>/g, '')}</div>` : '';
+                filas.push([
+                    H.esc(label),
+                    `<b>${H.esc(item.nombre || ('Tipo ' + (idx + 1)))}</b><div class="pd-detalle">fck ${H.esc(item.resistencia)} MPa · ${H.esc(item.exposicion)} · ${item.distintivo === 'con' ? 'con distintivo' : 'sin distintivo'} · ${H.esc(item.tiempoSemanas || 1)} sem.${item.superficie ? ' · ' + H.esc(item.superficie) + ' m²' : ''}${item.plantas ? ' · ' + H.esc(item.plantas) + ' plantas' : ''}</div><div class="pd-detalle">A/C máx. ${ex.ac_max.toFixed(2)} · cemento mín. ${ex.cemento_min} kg/m³ · resist. mín. ${ex.resistencia_min} MPa</div><div class="pd-detalle">${H.esc(c.criterio)}</div>${aviso}`,
+                    num(c.volumen), String(c.numeroLotes), `${c.amasadas} <span class="pd-detalle">(${c.amasadasPorLote}/lote)</span>`
+                ]);
+                if (resU < ex.resistencia_min) filas[filas.length - 1] = { clase: 'pd-fila-nc', celdas: filas[filas.length - 1] };
+            });
+        });
+        if (filas.length) {
+            filas.push({ clase: 'pd-fila-total', celdas: ['<b>Total</b>', '', `<b>${num(tVol)}</b>`, `<b>${tLot}</b>`, `<b>${tAm}</b>`] });
+            html += H.subtitulo('Programación del control del hormigón (Tabla 57.5.4.1)');
+            html += H.tabla([{ t: 'Elemento', w: '17%' }, { t: 'Tipo de hormigón y criterio de lote', w: '50%' }, { t: 'Volumen (m³)', w: '12%', clase: 'pd-derecha' }, { t: 'Lotes', w: '8%', clase: 'pd-centro' }, { t: 'Amasadas', w: '13%', clase: 'pd-centro' }], filas);
+        }
+        // 2. Acero
+        const ac = calculoAceroDesdeDatos(d);
+        if (ac.volT > 0) {
+            html += H.subtitulo('Control del acero corrugado: cálculo de lotes');
+            if (!ac.valido) {
+                html += `<p class="pd-aviso">La suma de porcentajes de series de acero debe ser 100 % (actual: ${ac.suma} %).</p>`;
+            } else {
+                const fAc = ac.desglose.map(x => [H.esc(x.label), num(x.vol) + ' m³', num(x.kg) + ' kg', '']);
+                fAc.push({ grupo: 'Distribución por series de diámetro' });
+                ac.series.forEach(x => { if (!soloDatos || x.pct > 0) fAc.push([H.esc(x.label), x.pct + ' %', num(x.kg) + ' kg', String(x.lotes)]); });
+                fAc.push({ clase: 'pd-fila-total', celdas: ['<b>Total acero estimado</b>', num(ac.volT) + ' m³', `<b>${num(ac.kgT)} kg</b>`, `<b>${ac.lotes}</b>`] });
+                html += H.tabla([{ t: 'Elemento / serie', w: '40%' }, { t: 'Volumen / %', w: '20%' }, { t: 'Acero', w: '25%' }, { t: 'Lotes', w: '15%', clase: 'pd-centro' }], fAc);
+                const notas = [['Ensayos por lote', 'Dos barras por lote: tracción, doblado-desdoblado o doblado simple y características geométricas.']];
+                if (d.soldaduraResistente) notas.push(['Soldadura resistente', 'Solicitar certificado de homologación de soldadores y del proceso de soldadura.']);
+                if (d.soldaduraNoResistente) notas.push(['Soldadura no resistente', 'Solicitar certificado de cualificación del personal que realizará la soldadura.']);
+                html += H.notasHtml(notas);
+            }
+        }
+        // 3. Ensayos de rotura
+        const casos = { '1': 'Caso 1: con distintivo (Art. 57.5.3.1)', '2': 'Caso 2: sin distintivo, > 36 amasadas (Art. 57.5.3.2)', '3': 'Caso 3: sin distintivo, ≤ 36 amasadas (Art. 57.5.3.3)' };
+        let nRot = 0, rot = '';
+        (d.lotesRotura || []).forEach((l, i) => {
+            const conValores = (l.amasadas || []).some(v => v !== '' && v !== null && v !== undefined);
+            if (soloDatos && !l.resultado && !conValores && !l.referencia && !l.ubicacion) return;
+            nRot++;
+            const r = l.resultado;
+            const estado = r ? (r.aprobado ? 'Conforme' : 'No conforme') : 'Pendiente';
+            const nombre = [l.referencia, l.ubicacion].filter(Boolean).join(' · ') || ('Lote ' + (i + 1));
+            const pares = [['Caso de control', casos[l.caso] || ''], ['fck', l.fck ? l.fck + ' MPa' : ''], ['Nº de amasadas', l.numAmasadas || ''], ['Laboratorio', l.laboratorio || '']];
+            if (l.caso === '1') pares.push(['Coef. variación δ*', l.coefVariacion || '']);
+            if (l.caso === '2') pares.push(['s35', l.s35 ? l.s35 + ' MPa' : '']);
+            pares.push(['Roturas (MPa)', (l.amasadas || []).map(v => v === '' ? '—' : String(v).replace('.', ',')).join(' · ')]);
+            if (r) pares.push(['Resultado', `${H.esc(r.formula)} <span class="pd-detalle">(media ${num(r.media)} · mín. ${num(r.x1)} MPa)</span>`, true]);
+            rot += `<div class="pd-registro">${H.cabecera(nombre, H.resultado(estado))}${H.ficha(pares, { soloDatos, nc: r && !r.aprobado })}</div>`;
+        });
+        if (rot) html += H.subtitulo('Ensayos de resistencia del hormigón') + rot;
+        // 4. Ensayos del acero
+        const lotesAc = (d.lotesAcero || []).filter(l => !soloDatos || l.referencia || l.ubicacion || l.diametro || l.fabricante || l.laboratorio || [l.ensayoTraccion, l.ensayoDoblado, l.ensayoGeometricas].some(e => e && e !== 'no procede'));
+        if (lotesAc.length) {
+            const cap = (v) => v ? v.charAt(0).toUpperCase() + v.slice(1) : '';
+            html += H.subtitulo('Ensayos del acero');
+            html += H.tabla([{ t: 'Referencia / ubicación', w: '19%' }, { t: 'Diámetro', w: '10%' }, { t: 'Fabricante', w: '12%' }, { t: 'Laboratorio', w: '14%' }, { t: 'Tracción', w: '15%' }, { t: 'Doblado', w: '15%' }, { t: 'Geométricas', w: '15%' }],
+                lotesAc.map(l => {
+                    const ens = [l.ensayoTraccion, l.ensayoDoblado, l.ensayoGeometricas];
+                    return { clase: ens.includes('no conforme') ? 'pd-fila-nc' : '', celdas: [H.esc([l.referencia, l.ubicacion].filter(Boolean).join(' · ')), H.esc(l.diametro), H.esc(l.fabricante), H.esc(l.laboratorio), ...ens.map(e => H.resultado(cap(e)))] };
+                }));
+        }
+        return { html, resumen: [tLot ? `${tLot} lotes de hormigón · ${tAm} amasadas` : '', nRot ? H.plural(nRot, 'lote ensayado', 'lotes ensayados') : '', ac.valido ? `${ac.lotes} lotes de acero` : ''] };
+    });
+
     // Actualizar Resumen Global
     function actualizarResumen() {
         const tbody = wrapper.querySelector('#tablaResumenBody');

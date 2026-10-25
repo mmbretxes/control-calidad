@@ -10,6 +10,22 @@ window.renderEnsayosOtrosCalc = function(container, materialId) {
         data.lista_ensayos_varios = [];
     }
 
+    // Impresión desde los datos
+    if (window.registrarImpresionFicha) registrarImpresionFicha(materialId, function (d, soloDatos, H) {
+        var html = '', n = 0;
+        (d.lista_ensayos_varios || []).forEach(function (it, i) {
+            var tipo = it.tipo_ensayo !== undefined ? it.tipo_ensayo : it.descripcion;
+            var pares = [['Tipo de ensayo', tipo || ''], ['Zona ensayada / Ubicación', it.zona || ''], ['Laboratorio (Nombre)', it.laboratorio_nombre || ''], ['Fecha del ensayo', H.fecha(it.fecha || '')]];
+            var conDatos = pares.some(function (p) { return p[1]; }) || it.resultado || it.observaciones;
+            if (soloDatos && !conDatos) return;
+            n++;
+            if (it.observaciones) pares.push(['Observaciones', it.observaciones]);
+            html += '<div class="pd-registro">' + H.cabecera(it._title || ('Ensayo ' + (i + 1)), it.resultado ? H.resultado(it.resultado) : '') +
+                H.ficha(pares, { soloDatos: soloDatos, nc: H.claseResultado(it.resultado) === 'pd-res-ko' }) + '</div>';
+        });
+        return { html: html, resumen: [H.plural(n, 'ensayo', 'ensayos')] };
+    });
+
     function renderAll() {
         var habituals = (window.CustomControlsManager && typeof window.CustomControlsManager.getPoints === 'function')
             ? window.CustomControlsManager.getPoints(materialId, '')
