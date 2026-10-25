@@ -973,18 +973,8 @@ btns.new.addEventListener('click', () => {
             const dirEjecucion = await projectDirHandle.getDirectoryHandle('Control de ejecución', { create: true });
             const dirEnsayos = await projectDirHandle.getDirectoryHandle('Ensayos y pruebas de servicio', { create: true });
 
-            // 3. Crear subcarpetas según data.js
-            for (const mat of materialesTemplate) {
-                let parentDir;
-                if (mat.category === 'recepcion') parentDir = dirRecepcion;
-                else if (mat.category === 'ejecucion') parentDir = dirEjecucion;
-                else if (mat.category === 'ensayos') parentDir = dirEnsayos;
-
-                if (parentDir) {
-                    const safeName = mat.name.replace(/[\\/:*?"<>|]/g, '-');
-                    await parentDir.getDirectoryHandle(safeName, { create: true });
-                }
-            }
+            // 3. Las carpetas de cada capítulo se crean a medida que se seleccionan
+            //    (ver asegurarCarpetasCapitulos); al desmarcar un capítulo su carpeta se conserva.
 
             // 4. Crear archivo JSON inicial
             projectFileHandle = await projectDirHandle.getFileHandle('datos_obra.json', { create: true });
@@ -1150,6 +1140,7 @@ document.addEventListener('click', (e) => {
         currentProject.selectedMaterials = Array.from(checkboxes).map(c => c.value);
         
         currentActiveCategory = e.target.getAttribute('data-category');
+        asegurarCarpetasCapitulos();
         
         const materialsToRender = currentProject.selectedMaterials.filter(matId => {
             const t = materialesTemplate.find(m => m.id === matId);
@@ -1190,6 +1181,7 @@ async function performSave(opts = {}) {
             
             await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
             if (dirtySeq === seqAlGuardar) projectDirty = false;
+            asegurarCarpetasCapitulos();
             
             // Pequeño feedback visual
             if (!btns.save._originalHtml) btns.save._originalHtml = btns.save.innerHTML;
@@ -1288,6 +1280,29 @@ setInterval(async () => {
     try { await performSave({ silent: true }); } catch (e) { /* se reintentará */ }
     finally { autoguardando = false; }
 }, 60000);
+
+// ---------------------------------------------------------------------------
+// Carpetas de capítulos: se crean al seleccionar el capítulo y nunca se borran
+// ---------------------------------------------------------------------------
+function nombreCarpetaCategoria(cat) {
+    if (cat === 'recepcion') return 'Control de recepción';
+    if (cat === 'ejecucion') return 'Control de ejecución';
+    if (cat === 'ensayos') return 'Ensayos y pruebas de servicio';
+    return 'Otros';
+}
+async function carpetaCapitulo(mat) {
+    const catHandle = await projectDirHandle.getDirectoryHandle(nombreCarpetaCategoria(mat.category), { create: true });
+    const safeName = mat.name.replace(/[\\/:*?"<>|]/g, '-');
+    return catHandle.getDirectoryHandle(safeName, { create: true });
+}
+async function asegurarCarpetasCapitulos() {
+    if (!projectDirHandle || !currentProject || !Array.isArray(currentProject.selectedMaterials)) return;
+    for (const id of currentProject.selectedMaterials) {
+        const mat = materialesTemplate.find(m => m.id === id);
+        if (!mat) continue;
+        try { await carpetaCapitulo(mat); } catch (e) { console.warn('No se pudo crear la carpeta del capítulo', mat.name, e); }
+    }
+}
 
 // Abrir la obra contenida en una carpeta (datos_obra.json)
 async function loadProjectFromDirHandle(dirHandle) {
@@ -2756,9 +2771,9 @@ async function handleExploreClick(e, mat) {
         else if (mat.category === 'ejecucion') catFolderName = 'Control de ejecución';
         else if (mat.category === 'ensayos') catFolderName = 'Ensayos y pruebas de servicio';
         
-        const catHandle = await projectDirHandle.getDirectoryHandle(catFolderName);
+        // Si la carpeta del capítulo aún no existe, se crea (vacía)
+        const chapterHandle = await carpetaCapitulo(mat);
         const safeName = mat.name.replace(/[\\/:*?"<>|]/g, '-');
-        const chapterHandle = await catHandle.getDirectoryHandle(safeName);
 
         const files = [];
         for await (const entry of chapterHandle.values()) {
