@@ -491,31 +491,31 @@ const materialesTemplate = [
 
 if (typeof document !== 'undefined' && !window.renderEjecExcavacionesCalc) {
     const s = document.createElement('script');
-    s.src = 'ejec-excavaciones-calc.js';
+    s.src = 'ejec-excavaciones-calc.js?v=1010';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderEjecOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'ejec-otros-calc.js';
+    s.src = 'ejec-otros-calc.js?v=1010';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderEnsayosOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'ensayos-otros-calc.js';
+    s.src = 'ensayos-otros-calc.js?v=1010';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderRecepcionOtrosCalc) {
     const s = document.createElement('script');
-    s.src = 'recepcion-otros-calc.js';
+    s.src = 'recepcion-otros-calc.js?v=1010';
     document.head.appendChild(s);
 }
 
 if (typeof document !== 'undefined' && !window.renderRecepcionRellenosCalc) {
     const s = document.createElement('script');
-    s.src = 'recepcion-rellenos-calc.js';
+    s.src = 'recepcion-rellenos-calc.js?v=1010';
     document.head.appendChild(s);
 }
 
