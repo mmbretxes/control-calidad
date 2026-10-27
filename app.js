@@ -712,7 +712,9 @@ async function renderRecentProjects() {
     const list = document.getElementById('recent-projects-list');
     
     if (!container || !list) return;
-    
+
+    if (window.Almacen && Almacen.modo === 'drive') { await renderObrasDrive(container, list); return; }
+
     const projects = await DB.getRecentProjects();
     
     if (projects.length === 0) {
@@ -880,8 +882,151 @@ async function loadRecentProject(p) {
     }
 }
 
+// ===========================================================================
+// Selección de almacén: carpeta del ordenador (como hasta ahora) o Google Drive
+// ===========================================================================
+window.Almacen = { modo: 'local' };
+const soportaLocal = ('showDirectoryPicker' in window);
+const soportaDrive = (location.protocol !== 'file:'); // Drive necesita una dirección web (no file://)
+
+function pintarSelectorAlmacen() {
+    if (document.getElementById('almacen-selector')) return;
+    const refBtn = document.getElementById('btn-new-project');
+    if (!refBtn) return;
+    const grupo = refBtn.parentElement;
+    const barra = document.createElement('div');
+    barra.id = 'almacen-selector';
+    barra.style.cssText = 'display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:0.5rem; margin:0 auto 1.25rem auto; position:relative; z-index:10; font-size:0.95rem; color:#334155;';
+    barra.innerHTML =
+        '<span style="font-weight:600;">Guardar mis obras en:</span>' +
+        '<button id="almacen-local" type="button" class="btn">💻 Este ordenador</button>' +
+        '<button id="almacen-drive" type="button" class="btn">☁️ Google Drive</button>' +
+        '<span id="almacen-estado" style="font-size:0.85rem; color:#64748b; width:100%; text-align:center;"></span>';
+    grupo.parentElement.insertBefore(barra, grupo);
+
+    const bl = barra.querySelector('#almacen-local');
+    const bd = barra.querySelector('#almacen-drive');
+    const est = barra.querySelector('#almacen-estado');
+    const marcar = () => {
+        [bl, bd].forEach(b => { b.style.borderRadius = '6px'; b.style.padding = '0.45rem 1rem'; b.style.fontWeight = '600'; });
+        const act = (b, on) => { b.style.background = on ? '#dbeafe' : '#f8fafc'; b.style.color = on ? '#1e40af' : '#334155'; b.style.border = on ? '2px solid #2563eb' : '1px solid #cbd5e1'; };
+        act(bl, Almacen.modo === 'local'); act(bd, Almacen.modo === 'drive');
+    };
+    if (!soportaLocal) { bl.style.opacity = '0.5'; bl.title = 'Este navegador no permite elegir una carpeta del ordenador'; }
+    bl.onclick = () => {
+        if (!soportaLocal) { window.appAlert('Este navegador no permite guardar en una carpeta del ordenador. Usa Google Drive, o abre la aplicación en Chrome o Edge en un ordenador.'); return; }
+        Almacen.modo = 'local'; est.textContent = ''; marcar(); renderRecentProjects();
+    };
+    bd.onclick = async () => {
+        if (!soportaDrive) { window.appAlert('Para usar Google Drive, abre la aplicación desde su dirección web (https://…), no como archivo local en el ordenador.', 'Google Drive'); return; }
+        if (!window.DriveStore) { window.appAlert('No se pudo cargar el módulo de Google Drive.', 'Google Drive'); return; }
+        if (!DriveStore.estaConectado()) {
+            est.textContent = 'Conectando con Google…';
+            try { await DriveStore.conectar(); }
+            catch (e) { est.textContent = ''; window.appAlert('No se pudo conectar con Google Drive: ' + (e && e.message ? e.message : e) + '\n\nComprueba que has permitido el acceso en la ventana de Google.', 'Google Drive'); return; }
+        }
+        Almacen.modo = 'drive';
+        est.textContent = '✓ Conectado a Google Drive · tus obras se guardan en tu Drive, en la carpeta «Control de Calidad».';
+        marcar(); renderRecentProjects();
+    };
+    if (!soportaLocal && soportaDrive) { Almacen.modo = 'drive'; est.textContent = 'En este dispositivo las obras se guardan en Google Drive. Pulsa «Google Drive» para conectar.'; }
+    marcar();
+}
+
+// --- Obras en Google Drive ---
+async function nuevaObraDrive() {
+    let nombre = await window.appPedirTexto('Nueva obra en Google Drive', 'Escribe el nombre de la obra. Se creará una carpeta con ese nombre en tu Drive.', '', 'Ej: Edificio Residencial Los Pinos');
+    if (nombre == null) return;
+    nombre = nombre.trim(); if (!nombre) return;
+    const safe = nombre.replace(/[\\/:*?"<>|]/g, '-');
+    try {
+        const raiz = DriveStore.raiz();
+        let dir = null, existente = null;
+        try { existente = await raiz.getDirectoryHandle(safe, { create: false }); } catch (e) {}
+        if (existente) {
+            let tieneDatos = null; try { tieneDatos = await existente.getFileHandle('datos_obra.json'); } catch (e) {}
+            if (tieneDatos) {
+                const op = await window.appChoice('Ya existe una obra con ese nombre',
+                    `En tu Google Drive ya hay una obra llamada «${nombre}». Para no perder sus datos no se creará otra.`,
+                    [{ label: 'Cancelar', value: null }, { label: 'Abrir esa obra', value: 'open', primary: true }]);
+                if (op === 'open') await loadProjectFromDirHandle(existente);
+                return;
+            }
+            dir = existente;
+        } else {
+            dir = await raiz.getDirectoryHandle(safe, { create: true });
+        }
+        projectDirHandle = dir;
+        await dir.getDirectoryHandle('Control de recepción', { create: true });
+        await dir.getDirectoryHandle('Control de ejecución', { create: true });
+        await dir.getDirectoryHandle('Ensayos y pruebas de servicio', { create: true });
+        projectFileHandle = await dir.getFileHandle('datos_obra.json', { create: true });
+        currentProject = { name: nombre, location: '', tech: '', date: '', selectedMaterials: [], formData: {} };
+        const w = await projectFileHandle.createWritable(); await w.write(JSON.stringify(currentProject, null, 2)); await w.close();
+        projectDirty = false; initSetup(); showScreen('setup');
+    } catch (err) {
+        console.error(err);
+        window.appAlert('No se pudo crear la obra en Google Drive: ' + (err && err.message ? err.message : err), 'Google Drive');
+    }
+}
+
+async function listarObrasDrive() {
+    const raiz = DriveStore.raiz();
+    const obras = [];
+    for await (const e of raiz.values()) {
+        if (e.kind !== 'directory') continue;
+        let fh = null; try { fh = await e.getFileHandle('datos_obra.json'); } catch (_) { continue; }
+        let nombre = e.name;
+        try { const d = JSON.parse(await (await fh.getFile()).text()); if (d && d.name) nombre = d.name; } catch (_) {}
+        obras.push({ dir: e, nombre, modif: e.modifiedTime || '' });
+    }
+    obras.sort((a, b) => (b.modif || '').localeCompare(a.modif || ''));
+    return obras;
+}
+
+async function renderObrasDrive(container, list) {
+    list.innerHTML = '';
+    let obras = [];
+    try { obras = await listarObrasDrive(); } catch (e) { container.style.display = 'none'; return; }
+    if (!obras.length) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+    obras.forEach((o, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #cbd5e1';
+        tr.style.backgroundColor = idx % 2 === 0 ? '#f8fafc' : '#f1f5f9';
+        const nameTd = document.createElement('td');
+        nameTd.style.cssText = 'padding:0.75rem 1rem; color:#334155; font-weight:500;';
+        nameTd.textContent = o.nombre || 'Sin título';
+        const dateTd = document.createElement('td');
+        dateTd.style.cssText = 'padding:0.75rem 1rem; color:#64748b; font-size:0.9rem;';
+        dateTd.textContent = o.modif ? new Date(o.modif).toLocaleString() : '';
+        const actionTd = document.createElement('td');
+        actionTd.style.cssText = 'padding:0.75rem 1rem; text-align:center;';
+        const btnView = document.createElement('button');
+        btnView.className = 'btn btn-secondary';
+        btnView.style.cssText = 'padding:0.35rem 0.9rem; font-size:0.85rem;';
+        btnView.textContent = 'Abrir';
+        btnView.onclick = () => loadProjectFromDirHandle(o.dir);
+        actionTd.appendChild(btnView);
+        tr.append(nameTd, dateTd, actionTd);
+        list.appendChild(tr);
+    });
+}
+
+async function abrirObraDrive() {
+    let obras = [];
+    try { obras = await listarObrasDrive(); }
+    catch (e) { window.appAlert('No se pudieron leer las obras de tu Drive: ' + (e && e.message ? e.message : e), 'Google Drive'); return; }
+    if (!obras.length) { window.appAlert('Todavía no hay obras en tu Google Drive. Crea una con «Nueva Obra».', 'Google Drive'); return; }
+    const botones = obras.slice(0, 20).map((o, i) => ({ label: o.nombre, value: i }));
+    botones.push({ label: 'Cancelar', value: null });
+    const op = await window.appChoice('Abrir obra de Google Drive', 'Elige la obra que quieres abrir:', botones);
+    if (op != null && obras[op]) await loadProjectFromDirHandle(obras[op].dir);
+}
+
 // Event Listeners principales
 btns.new.addEventListener('click', () => {
+    if (window.Almacen && Almacen.modo === 'drive') { nuevaObraDrive(); return; }
     if (!window.showDirectoryPicker) {
         alert("Tu navegador no soporta la creación de carpetas locales. Usa Chrome, Edge u Opera.");
         return;
@@ -1182,7 +1327,7 @@ async function performSave(opts = {}) {
             await writable.write(dataStr);
             await writable.close();
             
-            await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+            if (!window.Almacen || Almacen.modo === 'local') await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
             if (dirtySeq === seqAlGuardar) projectDirty = false;
             asegurarCarpetasCapitulos();
             
@@ -1208,7 +1353,7 @@ async function performSave(opts = {}) {
             await writable.write(dataStr);
             await writable.close();
             
-            await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+            if (!window.Almacen || Almacen.modo === 'local') await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
             if (dirtySeq === seqAlGuardar) projectDirty = false;
             return true;
         }
@@ -1424,7 +1569,7 @@ async function loadProjectFromDirHandle(dirHandle) {
         projectDirHandle = dirHandle;
         projectFileHandle = fileHandle;
         currentProject = data;
-        await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+        if (!window.Almacen || Almacen.modo === 'local') await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
         projectDirty = false;
         initSetup();
         showScreen('setup');
@@ -1436,6 +1581,7 @@ async function loadProjectFromDirHandle(dirHandle) {
 
 // Cargar archivo JSON
 btns.load.addEventListener('click', async () => {
+    if (window.Almacen && Almacen.modo === 'drive') { abrirObraDrive(); return; }
     try {
         if ('showDirectoryPicker' in window) {
             const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
@@ -3080,7 +3226,7 @@ async function handleExploreClick(e, mat) {
             try {
                 projectDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
                 if (currentProject.id && projectFileHandle) {
-                    await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
+                    if (!window.Almacen || Almacen.modo === 'local') await DB.saveProject(currentProject.id, currentProject.name, projectDirHandle, projectFileHandle);
                 }
             } catch (err) {
                 return;
@@ -3616,3 +3762,9 @@ function renderMaterial(section, matId, template) {
         });
     }
 }
+
+// ---------------------------------------------------------------------------
+// Arranque: selector de almacén (local / Drive) y lista de obras
+// ---------------------------------------------------------------------------
+try { pintarSelectorAlmacen(); } catch (e) { console.warn('selector almacén', e); }
+try { if (screens.home && screens.home.classList.contains('active')) renderRecentProjects(); } catch (e) {}
