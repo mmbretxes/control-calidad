@@ -364,33 +364,23 @@
                 const inst = data.instances[el.dataset.idx];
                 return inst ? inst.checks[el.dataset.cid] : null;
             };
-            on('.zc-btn-foto', 'click', e => {
+            on('.zc-btn-foto', 'click', async e => {
                 const btn = e.currentTarget;
                 const inst = data.instances[btn.dataset.idx];
                 const chk = chkDe(btn);
-                if (!inst || !chk) return;
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.multiple = true;
-                input.style.display = 'none';
-                document.body.appendChild(input);
-                input.addEventListener('change', async () => {
-                    const files = Array.from(input.files || []);
-                    input.remove();
-                    if (!files.length || !window.AppFotos) return;
-                    btn.disabled = true; btn.textContent = 'Guardando...';
-                    const zona = inst[campoNombre] || 'Zona';
-                    const puntoTxt = (chk.name || '').slice(0, 40);
-                    const nuevas = await window.AppFotos.adjuntar(materialId, files, `${zona} - ${puntoTxt}`);
-                    if (nuevas.length) {
-                        if (!Array.isArray(chk.fotos)) chk.fotos = [];
-                        chk.fotos.push(...nuevas);
-                        if (typeof markDirty === 'function') markDirty();
-                    }
-                    renderAll();
-                });
-                input.click();
+                if (!inst || !chk || !window.AppFotos) return;
+                const files = await window.AppFotos.elegirFotos();
+                if (!files.length) return;
+                btn.disabled = true; btn.textContent = 'Guardando...';
+                const zona = inst[campoNombre] || 'Zona';
+                const puntoTxt = (chk.name || '').slice(0, 40);
+                const nuevas = await window.AppFotos.adjuntar(materialId, files, `${zona} - ${puntoTxt}`);
+                if (nuevas.length) {
+                    if (!Array.isArray(chk.fotos)) chk.fotos = [];
+                    chk.fotos.push(...nuevas);
+                    if (typeof markDirty === 'function') markDirty();
+                }
+                renderAll();
             });
             on('.zc-foto-ver', 'click', e => {
                 const chk = chkDe(e.currentTarget);

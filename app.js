@@ -1471,6 +1471,33 @@ window.AppFotos = {
         return { mini: canvas.toDataURL('image/jpeg', 0.75), w, h };
     },
 
+    // Pide fotos al usuario. En móvil/tableta ofrece cámara o galería; en el
+    // ordenador abre directamente el selector de archivos.
+    async elegirFotos() {
+        const tactil = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
+        let modo = 'galeria';
+        if (tactil) {
+            const op = await window.appChoice('Añadir foto', '¿Cómo quieres añadir la foto al punto de inspección?', [
+                { label: '📷 Hacer foto', value: 'camara', primary: true },
+                { label: '🖼️ Elegir de la galería', value: 'galeria' },
+                { label: 'Cancelar', value: null }
+            ]);
+            if (op == null) return [];
+            modo = op;
+        }
+        return await new Promise(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            if (modo === 'camara') input.setAttribute('capture', 'environment'); else input.multiple = true;
+            input.style.display = 'none';
+            document.body.appendChild(input);
+            input.addEventListener('change', () => { const f = Array.from(input.files || []); input.remove(); resolve(f); });
+            input.addEventListener('cancel', () => { input.remove(); resolve([]); });
+            input.click();
+        });
+    },
+
     async asegurarCarpeta() {
         if (projectDirHandle) return true;
         const ok = await window.appConfirmar('Para guardar fotos hay que indicar la carpeta de la obra, donde se guardará el original de cada foto (en la carpeta del capítulo).', { titulo: 'Carpeta de la obra', aceptar: 'Seleccionar carpeta', peligro: false });
