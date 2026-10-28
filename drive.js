@@ -15,9 +15,11 @@
 (function () {
     'use strict';
 
-    const CLIENT_ID = '157638865197-4epcbkhmil0gfn24m083ufi3a0i1323k.apps.googleusercontent.com';
+    // El Client ID y el nombre de la carpeta se toman de config.js (único sitio a editar).
+    const CFG = window.APP_CONFIG || {};
+    const CLIENT_ID = CFG.GOOGLE_CLIENT_ID || '157638865197-4epcbkhmil0gfn24m083ufi3a0i1323k.apps.googleusercontent.com';
     const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-    const CARPETA_RAIZ = 'Control de Calidad';
+    const CARPETA_RAIZ = CFG.CARPETA_RAIZ || 'Control de Calidad';
     const CARPETA_MIME = 'application/vnd.google-apps.folder';
     const API = 'https://www.googleapis.com/drive/v3';
     const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
