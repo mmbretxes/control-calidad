@@ -124,20 +124,9 @@
             if (this.activeDbId === 'internal') {
                 this.activeDbHandle = null;
                 this.driveFileHandle = null;
-                try {
-                    const localData = localStorage.getItem('cc_catalog_backup');
-                    const parsed = localData ? JSON.parse(localData) : {};
-                    // Adaptar si viene con el formato completo {version, points}
-                    if (parsed && typeof parsed === 'object' && parsed.points && !Array.isArray(parsed.points)) {
-                        this.catalog = parsed.points;
-                    } else if (parsed && typeof parsed === 'object' && parsed.categories && !Array.isArray(parsed.categories)) {
-                        this.catalog = parsed.categories;
-                    } else {
-                        this.catalog = parsed || {};
-                    }
-                } catch (e) {
-                    this.catalog = {};
-                }
+                // Base genérica: solo los puntos que trae la aplicación (fijos).
+                // No tiene puntos habituales añadidos.
+                this.catalog = {};
             } else if (this.activeDbId === 'drive') {
                 this.activeDbHandle = null;
                 if (!window.DriveStore) {
@@ -217,10 +206,10 @@
                     btn.classList.add('btn-outline-primary');
                     statusText.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; margin-right:4px;"></span>${name}`;
                 } else {
-                    btn.title = 'Base de datos interna (Navegador)';
+                    btn.title = 'Base genérica (fija)';
                     btn.classList.remove('btn-outline-primary');
                     btn.classList.add('btn-secondary');
-                    statusText.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#64748b; margin-right:4px;"></span>Base Interna`;
+                    statusText.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#64748b; margin-right:4px;"></span>Base genérica`;
                 }
             }
         },
@@ -242,8 +231,8 @@
 
         async writeFile() {
             if (this.activeDbId === 'internal') {
-                localStorage.setItem('cc_catalog_backup', JSON.stringify(this.catalog));
-                return true;
+                // La base genérica no se puede ampliar
+                return false;
             }
 
             if (this.activeDbId === 'drive') {
@@ -394,24 +383,13 @@
             return `${materialId}::${subType.trim()}`;
         },
 
-        // Base genérica (interna del navegador): siempre suma, esté o no activa
-        readInternal() {
-            try {
-                const parsed = JSON.parse(localStorage.getItem('cc_catalog_backup') || '{}');
-                if (parsed && parsed.points && !Array.isArray(parsed.points)) return parsed.points;
-                if (parsed && parsed.categories && !Array.isArray(parsed.categories)) return parsed.categories;
-                return parsed || {};
-            } catch (e) { return {}; }
-        },
-
-        // Puntos de la base genérica + los de la base personal activa, sin repetir
+        // Puntos habituales de la base personal activa. Los puntos de la
+        // base genérica (los de cada ficha) los pone siempre la propia ficha;
+        // estos se añaden encima.
         getPoints(materialId, subType) {
             const key = this.getKey(materialId, subType);
-            const out = [];
-            const sumar = (list) => (Array.isArray(list) ? list : []).forEach(p => { if (!out.includes(p)) out.push(p); });
-            if (this.activeDbId !== 'internal') sumar(this.readInternal()[key]);
-            sumar(this.catalog[key]);
-            return out;
+            const list = this.catalog[key];
+            return Array.isArray(list) ? [...list] : [];
         },
 
         isHabitual(materialId, subType, pointText) {
@@ -419,9 +397,25 @@
             return this.getPoints(materialId, subType).includes(pointText.trim());
         },
 
+        // Guardar un habitual exige una base personal (la genérica es fija)
+        async asegurarBasePersonal() {
+            if (this.activeDbId !== 'internal') return true;
+            if (this.soportaDrive) {
+                const ok = await window.appConfirmar(
+                    'La base genérica es fija y no se puede ampliar. Los puntos habituales se guardan en tu base personal.\n\n¿Activar tu base personal en Google Drive?',
+                    { titulo: 'Base personal', aceptar: 'Activar Google Drive' });
+                if (!ok) return false;
+                return await this.activarDrive();
+            }
+            alert('La base genérica es fija y no se puede ampliar.\n\nCrea o vincula un archivo de base personal en el gestor de puntos personalizados para guardar tus puntos habituales.');
+            this.openManagerModal();
+            return false;
+        },
+
         async addHabitual(materialId, subType, pointText) {
             const text = pointText ? pointText.trim() : '';
             if (!text) return;
+            if (!(await this.asegurarBasePersonal())) return;
 
             const key = this.getKey(materialId, subType);
             if (!this.catalog[key]) this.catalog[key] = [];
@@ -442,15 +436,6 @@
             if (this.catalog[key]) {
                 this.catalog[key] = this.catalog[key].filter(p => p !== text);
                 await this.writeFile();
-            }
-            // Si el punto viene de la base genérica, se quita también de ella
-            // (si no, seguiría apareciendo al sumar las dos bases)
-            if (this.activeDbId !== 'internal') {
-                const interna = this.readInternal();
-                if (Array.isArray(interna[key]) && interna[key].includes(text)) {
-                    interna[key] = interna[key].filter(p => p !== text);
-                    localStorage.setItem('cc_catalog_backup', JSON.stringify(interna));
-                }
             }
         },
 
@@ -744,7 +729,9 @@
                 });
             }
 
-            if (allKeys.length === 0) {
+            if (this.activeDbId === 'internal') {
+                keysHtml = '<p style="color:var(--text-muted); text-align:center; padding:2rem 0.5rem;">La base genérica contiene solo los puntos de control que trae cada ficha de la aplicación. Es fija y no se puede ampliar.<br><br>Para guardar tus propios puntos habituales, activa <strong>Google Drive</strong> o crea un archivo de base personal. Sus puntos se añadirán a los de la base genérica en cada zona de control.</p>';
+            } else if (allKeys.length === 0) {
                 keysHtml = '<p style="color:var(--text-muted); font-style:italic; text-align:center; padding:2rem 0;">No tienes puntos habituales guardados en esta base de datos.<br>Aparecerán aquí cuando los guardes como habituales desde cualquier zona.</p>';
             } else {
                 allKeys.forEach(k => {
@@ -806,8 +793,8 @@
             let dbsListHtml = `
                 <div class="db-option ${this.activeDbId === 'internal' ? 'active-db' : ''}" data-id="internal" style="padding:0.75rem; border:1px solid ${this.activeDbId === 'internal' ? '#3b82f6' : 'var(--border)'}; border-radius:6px; margin-bottom:0.5rem; cursor:pointer; background:${this.activeDbId === 'internal' ? '#eff6ff' : '#fff'}; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight:600; color:#1e293b; overflow-wrap: anywhere;">🏠 Base Interna Original</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); overflow-wrap: anywhere;">Puntos guardados en la memoria de este navegador</div>
+                        <div style="font-weight:600; color:#1e293b; overflow-wrap: anywhere;">🏠 Base genérica</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); overflow-wrap: anywhere;">Puntos de control de la aplicación. Fija, no se puede ampliar.</div>
                     </div>
                     <div style="flex-shrink: 0;">
                         ${this.activeDbId === 'internal' ? '<span style="color:#3b82f6; font-weight:bold;">✓ Activa</span>' : '<button class="btn btn-secondary cc-btn-activate-db" data-id="internal" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Activar</button>'}
@@ -879,7 +866,7 @@
                         <div style="width:60%; padding:1.25rem; overflow-y:auto;">
                             <h4 style="margin:0 0 0.5rem 0; font-size:1rem; font-weight:bold; color:#1e293b;">Puntos en la base activa</h4>
                             <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0; margin-bottom:1.5rem;">
-                                Mostrando los puntos guardados en: <strong>${this.activeDbId === 'internal' ? 'Base Interna' : (this.activeDbId === 'drive' ? 'Google Drive' : this.dbHandles.find(h=>h.id===this.activeDbId)?.name)}</strong>
+                                Mostrando los puntos guardados en: <strong>${this.activeDbId === 'internal' ? 'Base genérica' : (this.activeDbId === 'drive' ? 'Google Drive' : this.dbHandles.find(h=>h.id===this.activeDbId)?.name)}</strong>
                             </p>
                             <div id="cc-catalog-list">
                                 ${keysHtml}
