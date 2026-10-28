@@ -394,18 +394,29 @@
             return `${materialId}::${subType.trim()}`;
         },
 
+        // Base genérica (interna del navegador): siempre suma, esté o no activa
+        readInternal() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem('cc_catalog_backup') || '{}');
+                if (parsed && parsed.points && !Array.isArray(parsed.points)) return parsed.points;
+                if (parsed && parsed.categories && !Array.isArray(parsed.categories)) return parsed.categories;
+                return parsed || {};
+            } catch (e) { return {}; }
+        },
+
+        // Puntos de la base genérica + los de la base personal activa, sin repetir
         getPoints(materialId, subType) {
             const key = this.getKey(materialId, subType);
-            const list = this.catalog[key];
-            if (Array.isArray(list)) return [...list];
-            return [];
+            const out = [];
+            const sumar = (list) => (Array.isArray(list) ? list : []).forEach(p => { if (!out.includes(p)) out.push(p); });
+            if (this.activeDbId !== 'internal') sumar(this.readInternal()[key]);
+            sumar(this.catalog[key]);
+            return out;
         },
 
         isHabitual(materialId, subType, pointText) {
             if (!pointText || !pointText.trim()) return false;
-            const key = this.getKey(materialId, subType);
-            const list = this.catalog[key] || [];
-            return list.includes(pointText.trim());
+            return this.getPoints(materialId, subType).includes(pointText.trim());
         },
 
         async addHabitual(materialId, subType, pointText) {
@@ -431,6 +442,15 @@
             if (this.catalog[key]) {
                 this.catalog[key] = this.catalog[key].filter(p => p !== text);
                 await this.writeFile();
+            }
+            // Si el punto viene de la base genérica, se quita también de ella
+            // (si no, seguiría apareciendo al sumar las dos bases)
+            if (this.activeDbId !== 'internal') {
+                const interna = this.readInternal();
+                if (Array.isArray(interna[key]) && interna[key].includes(text)) {
+                    interna[key] = interna[key].filter(p => p !== text);
+                    localStorage.setItem('cc_catalog_backup', JSON.stringify(interna));
+                }
             }
         },
 
@@ -458,10 +478,10 @@
                 inst.checks._dbId = 'internal';
             }
 
-            const zoneDbId = inst.checks._dbId;
-            const isActiveDbMatch = (zoneDbId === this.activeDbId);
-            const isCustomZone = zoneDbId !== 'internal';
-            
+            // Los puntos de la ficha (base genérica) se muestran siempre,
+            // sea cual sea la base activa: la personal solo añade puntos.
+            const isCustomZone = false;
+
             const items = [];
             const baseWithoutOtros = baseControles.filter(c => c !== "Otros" && c !== "Otro");
 
