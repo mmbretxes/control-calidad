@@ -6,11 +6,15 @@
     const DB_VERSION = 1;
     const STORE_NAME = 'databases';
 
+    const DRIVE_FILENAME = 'puntos_personalizados.json';
+
     const CustomControlsManager = {
         catalog: {},
-        activeDbId: 'internal', // 'internal' o el nombre del archivo
+        activeDbId: 'internal', // 'internal', 'drive' o 'file_<nombre>'
         activeDbHandle: null,
+        driveFileHandle: null, // Handle del archivo en Drive (si procede)
         dbHandles: [], // Lista de { id: string, name: string, handle: FileSystemFileHandle }
+        get soportaDrive() { return !!window.DriveStore; },
 
         async initDB() {
             return new Promise((resolve, reject) => {
@@ -109,13 +113,17 @@
             
             await this.reloadActiveCatalog(isUserGesture);
             this.updateStatusUI();
-            this.openManagerModal(); // Refrescar modal si está abierto
+            // Refrescar el modal solo si estaba abierto
+            if (document.getElementById('cc-manager-modal')) {
+                this.openManagerModal();
+            }
         },
 
         async reloadActiveCatalog(isUserGesture = false) {
             this.catalog = {}; // Limpiar siempre antes de recargar
             if (this.activeDbId === 'internal') {
                 this.activeDbHandle = null;
+                this.driveFileHandle = null;
                 try {
                     const localData = localStorage.getItem('cc_catalog_backup');
                     const parsed = localData ? JSON.parse(localData) : {};
@@ -128,6 +136,35 @@
                         this.catalog = parsed || {};
                     }
                 } catch (e) {
+                    this.catalog = {};
+                }
+            } else if (this.activeDbId === 'drive') {
+                this.activeDbHandle = null;
+                if (!window.DriveStore) {
+                    // Drive no disponible: volver a modo interno sin perder la elección guardada
+                    this.catalog = {};
+                    return;
+                }
+                try {
+                    if (!DriveStore.estaConectado()) {
+                        if (!isUserGesture) {
+                            // Sin interacción del usuario no se puede pedir token:
+                            // dejamos el catálogo vacío y se completará cuando el
+                            // usuario abra el gestor y haga la acción.
+                            return;
+                        }
+                        await DriveStore.conectar();
+                    }
+                    const raiz = DriveStore.raiz();
+                    this.driveFileHandle = await raiz.getFileHandle(DRIVE_FILENAME, { create: true });
+                    try {
+                        await this.readFile(this.driveFileHandle);
+                    } catch (e) {
+                        // Archivo recién creado o vacío; catálogo arrancará vacío
+                        this.catalog = {};
+                    }
+                } catch (err) {
+                    console.warn('No se pudo cargar la BD de Drive:', err);
                     this.catalog = {};
                 }
             } else {
@@ -167,7 +204,12 @@
             const btn = document.getElementById('btn-custom-controls');
             const statusText = document.getElementById('custom-controls-status-text');
             if (btn && statusText) {
-                if (this.activeDbId !== 'internal') {
+                if (this.activeDbId === 'drive') {
+                    btn.title = 'Base de datos activa: Google Drive';
+                    btn.classList.remove('btn-secondary');
+                    btn.classList.add('btn-outline-primary');
+                    statusText.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#1565c0; margin-right:4px;"></span>Google Drive`;
+                } else if (this.activeDbId !== 'internal') {
                     const dbEntry = this.dbHandles.find(h => h.id === this.activeDbId);
                     const name = dbEntry ? dbEntry.name : 'Desconocida';
                     btn.title = `Base de datos activa: ${name}`;
@@ -204,6 +246,37 @@
                 return true;
             }
 
+            if (this.activeDbId === 'drive') {
+                if (!this.driveFileHandle) {
+                    if (!window.DriveStore) return false;
+                    try {
+                        if (!DriveStore.estaConectado()) {
+                            await DriveStore.conectar();
+                        }
+                        const raiz = DriveStore.raiz();
+                        this.driveFileHandle = await raiz.getFileHandle(DRIVE_FILENAME, { create: true });
+                    } catch (e) {
+                        console.error('No se pudo obtener el archivo de Drive:', e);
+                        return false;
+                    }
+                }
+                try {
+                    const writable = await this.driveFileHandle.createWritable();
+                    const payload = {
+                        version: 1,
+                        description: "Base de datos de puntos de control de ejecución personalizados",
+                        updatedAt: new Date().toISOString(),
+                        points: this.catalog
+                    };
+                    await writable.write(JSON.stringify(payload, null, 2));
+                    await writable.close();
+                    return true;
+                } catch (err) {
+                    console.error('Error escribiendo en Drive:', err);
+                    return false;
+                }
+            }
+
             if (!this.activeDbHandle) return false;
 
             try {
@@ -225,6 +298,24 @@
                 return true;
             } catch (err) {
                 console.error('Error escribiendo en archivo de puntos personalizados:', err);
+                return false;
+            }
+        },
+
+        async activarDrive() {
+            if (!window.DriveStore) {
+                alert('Google Drive no está disponible en esta aplicación.');
+                return false;
+            }
+            try {
+                if (!DriveStore.estaConectado()) {
+                    await DriveStore.conectar();
+                }
+                await this.setActiveDb('drive', true);
+                return true;
+            } catch (err) {
+                console.error('Error conectando con Drive:', err);
+                alert('No se pudo conectar con Google Drive: ' + (err.message || err));
                 return false;
             }
         },
@@ -583,9 +674,20 @@
             }
         },
 
-        openManagerModal() {
+        async openManagerModal() {
             const existing = document.getElementById('cc-manager-modal');
             if (existing) existing.remove();
+
+            // Recarga perezosa de Drive: si el usuario tiene Drive activo pero
+            // aún no cargamos el archivo (no había gesto en el arranque),
+            // ahora que ha hecho clic en el botón sí lo tenemos.
+            if (this.activeDbId === 'drive' && !this.driveFileHandle && window.DriveStore) {
+                try {
+                    await this.reloadActiveCatalog(true);
+                } catch (e) {
+                    console.warn('No se pudo cargar la BD de Drive:', e);
+                }
+            }
 
             const modal = document.createElement('div');
             modal.id = 'cc-manager-modal';
@@ -692,7 +794,23 @@
                     </div>
                 </div>
             `;
-            
+
+            // Opción de Google Drive (si DriveStore está disponible)
+            if (this.soportaDrive) {
+                const isActive = this.activeDbId === 'drive';
+                dbsListHtml += `
+                    <div class="db-option ${isActive ? 'active-db' : ''}" data-id="drive" style="padding:0.75rem; border:1px solid ${isActive ? '#3b82f6' : 'var(--border)'}; border-radius:6px; margin-bottom:0.5rem; cursor:pointer; background:${isActive ? '#eff6ff' : '#fff'}; display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight:600; color:#1e293b; overflow-wrap: anywhere;">☁️ Google Drive</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); overflow-wrap: anywhere;">Archivo <code>${DRIVE_FILENAME}</code> en tu carpeta "Control de Calidad". Se sincroniza entre tus dispositivos.</div>
+                        </div>
+                        <div style="flex-shrink: 0;">
+                            ${isActive ? '<span style="color:#3b82f6; font-weight:bold;">✓ Activa</span>' : '<button class="btn btn-secondary cc-btn-activate-drive" style="font-size:0.75rem; padding:0.2rem 0.5rem;">Activar</button>'}
+                        </div>
+                    </div>
+                `;
+            }
+
             this.dbHandles.forEach(dbEntry => {
                 const isActive = this.activeDbId === dbEntry.id;
                 dbsListHtml += `
@@ -741,7 +859,7 @@
                         <div style="width:60%; padding:1.25rem; overflow-y:auto;">
                             <h4 style="margin:0 0 0.5rem 0; font-size:1rem; font-weight:bold; color:#1e293b;">Puntos en la base activa</h4>
                             <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0; margin-bottom:1.5rem;">
-                                Mostrando los puntos guardados en: <strong>${this.activeDbId === 'internal' ? 'Base Interna' : this.dbHandles.find(h=>h.id===this.activeDbId)?.name}</strong>
+                                Mostrando los puntos guardados en: <strong>${this.activeDbId === 'internal' ? 'Base Interna' : (this.activeDbId === 'drive' ? 'Google Drive' : this.dbHandles.find(h=>h.id===this.activeDbId)?.name)}</strong>
                             </p>
                             <div id="cc-catalog-list">
                                 ${keysHtml}
@@ -769,6 +887,15 @@
                     await this.setActiveDb(id);
                 };
             });
+
+            const btnActDrive = modal.querySelector('.cc-btn-activate-drive');
+            if (btnActDrive) {
+                btnActDrive.onclick = async () => {
+                    btnActDrive.disabled = true;
+                    btnActDrive.textContent = 'Conectando…';
+                    await this.activarDrive();
+                };
+            }
             
             modal.querySelectorAll('.cc-btn-forget-db').forEach(btn => {
                 btn.onclick = async (e) => {
