@@ -63,6 +63,26 @@ propios servidores. La aplicación es obra de **Mateo Moyá Borrás**.
 - Para actualizar la aplicación, se sustituyen los archivos por la versión nueva.
   No hay que tocar nada más (vuestro `config.js` se conserva).
 
+## Acceso directo en móvil
+
+Cada usuario puede crear un acceso directo en la pantalla de inicio del móvil para
+abrir la aplicación rápidamente, como si fuera una app nativa.
+
+**Android (Chrome o Edge):**
+1. Abre la aplicación en el navegador.
+2. Toca el menú **⋮** (arriba a la derecha).
+3. Elige **«Crear acceso directo»**.
+4. Confirma. Se añade un icono a la pantalla de inicio.
+
+**iOS (Safari):**
+1. Abre la aplicación en Safari.
+2. Toca el botón **Compartir** (cuadro con flecha, abajo).
+3. Desplázate y elige **«Agregar a pantalla de inicio»**.
+4. Dale un nombre y confirma.
+
+El acceso directo abre la aplicación en pantalla completa, sin la barra del
+navegador, y funciona exactamente igual que desde el navegador.
+
 ## Uso sin Google (opcional)
 
 - La aplicación también funciona **sin Google**, guardando en una carpeta del
