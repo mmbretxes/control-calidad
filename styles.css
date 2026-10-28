@@ -1395,3 +1395,16 @@ input.unified-title:focus {
     #cc-manager-modal > div > div:nth-child(2) > div:first-child { border-bottom: 1px solid #cbd5e1; flex: none !important; }
     [style*="position:fixed"][style*="z-index:99999"] > div { max-height: 100vh; overflow-y: auto; }
 }
+
+/* Estado de subida de fotos (segundo plano) */
+.zc-foto-subiendo {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.62); color: #fff; font-size: 0.6rem;
+    text-align: center; padding: 1px 0; border-radius: 0 0 4px 4px; pointer-events: none;
+}
+.zc-foto-error {
+    position: absolute; top: -6px; left: -6px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fef3c7; color: #b45309; font-size: 0.72rem; line-height: 18px; text-align: center;
+    border: 1px solid #f59e0b; pointer-events: none;
+}
+@media print { .zc-foto-subiendo, .zc-foto-error { display: none !important; } }

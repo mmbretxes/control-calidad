@@ -184,9 +184,14 @@
         // Fotos del punto: miniaturas + botón para añadir (el botón no se imprime)
         function htmlFotos(chk, index, cId) {
             const fotos = Array.isArray(chk.fotos) ? chk.fotos : [];
+            const estadoFoto = (f) => {
+                if (window.AppFotos && window.AppFotos.estaSubiendo && window.AppFotos.estaSubiendo(f.archivo)) return '<span class="zc-foto-subiendo print-hidden">subiendo…</span>';
+                if (window.AppFotos && window.AppFotos.tuvoError && window.AppFotos.tuvoError(f.archivo)) return '<span class="zc-foto-error print-hidden" title="No se pudo subir el archivo a la carpeta; la miniatura sí está guardada">⚠</span>';
+                return '';
+            };
             const minis = fotos.map((f, i) => f.mini
-                ? `<span class="zc-foto"><img class="foto-mini zc-foto-ver" src="${f.mini}" data-w="${f.w || ''}" data-h="${f.h || ''}" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" alt="${esc(f.archivo || 'Foto')}" title="${esc(f.archivo || '')}"><button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
-                : `<span class="zc-foto zc-foto-sin-mini"><button type="button" class="zc-foto-ver zc-foto-archivo" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="${esc(f.archivo || '')}">📄 ${esc(f.archivo || 'Foto')}</button><button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
+                ? `<span class="zc-foto"><img class="foto-mini zc-foto-ver" src="${f.mini}" data-w="${f.w || ''}" data-h="${f.h || ''}" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" alt="${esc(f.archivo || 'Foto')}" title="${esc(f.archivo || '')}">${estadoFoto(f)}<button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
+                : `<span class="zc-foto zc-foto-sin-mini"><button type="button" class="zc-foto-ver zc-foto-archivo" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="${esc(f.archivo || '')}">📄 ${esc(f.archivo || 'Foto')}</button>${estadoFoto(f)}<button type="button" class="zc-foto-quitar print-hidden" data-idx="${index}" data-cid="${esc(cId)}" data-n="${i}" title="Quitar la foto de este punto" aria-label="Quitar foto">✕</button></span>`
             ).join('');
             return `<div class="zc-fotos">${minis}<button type="button" class="zc-btn-foto print-hidden" data-idx="${index}" data-cid="${esc(cId)}" title="Añadir fotos a este punto de inspección">📷 Foto</button></div>`;
         }
@@ -371,16 +376,9 @@
                 if (!inst || !chk || !window.AppFotos) return;
                 const files = await window.AppFotos.elegirFotos();
                 if (!files.length) return;
-                btn.disabled = true; btn.textContent = 'Guardando...';
                 const zona = inst[campoNombre] || 'Zona';
                 const puntoTxt = (chk.name || '').slice(0, 40);
-                const nuevas = await window.AppFotos.adjuntar(materialId, files, `${zona} - ${puntoTxt}`);
-                if (nuevas.length) {
-                    if (!Array.isArray(chk.fotos)) chk.fotos = [];
-                    chk.fotos.push(...nuevas);
-                    if (typeof markDirty === 'function') markDirty();
-                }
-                renderAll();
+                await window.AppFotos.adjuntar(materialId, files, `${zona} - ${puntoTxt}`, { chk, onCambio: renderAll });
             });
             on('.zc-foto-ver', 'click', e => {
                 const chk = chkDe(e.currentTarget);

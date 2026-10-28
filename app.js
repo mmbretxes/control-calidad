@@ -1458,7 +1458,15 @@ async function asegurarCarpetasCapitulos() {
 // miniatura ligera (para verla en pantalla, en la impresión y en Word).
 // ---------------------------------------------------------------------------
 window.AppFotos = {
-    LADO_MINI: 360,
+    LADO_MINI: 360,          // lado mayor de la miniatura que se ve en pantalla/impresión
+    LADO_SUBIDA: 2000,       // lado mayor de la imagen que se sube a la carpeta (suficiente para imprimir)
+    CALIDAD_SUBIDA: 0.82,    // calidad JPEG de esa imagen
+
+    // Archivos que se están subiendo ahora mismo / que han fallado (para el aviso en pantalla)
+    _pendientes: new Set(),
+    _errores: new Set(),
+    estaSubiendo(archivo) { return this._pendientes.has(archivo); },
+    tuvoError(archivo) { return this._errores.has(archivo); },
 
     async miniatura(file) {
         const bmp = await createImageBitmap(file);
@@ -1469,6 +1477,22 @@ window.AppFotos = {
         canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
         if (bmp.close) bmp.close();
         return { mini: canvas.toDataURL('image/jpeg', 0.75), w, h };
+    },
+
+    // Versión reducida (JPEG) para subir a la carpeta. Devuelve un Blob, o null si
+    // el navegador no puede procesar la imagen (p. ej. HEIC): entonces se sube el original.
+    async imagenReducida(file) {
+        try {
+            const bmp = await createImageBitmap(file);
+            const escala = Math.min(1, this.LADO_SUBIDA / Math.max(bmp.width, bmp.height));
+            const w = Math.max(1, Math.round(bmp.width * escala)), h = Math.max(1, Math.round(bmp.height * escala));
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+            if (bmp.close) bmp.close();
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', this.CALIDAD_SUBIDA));
+            return blob || null;
+        } catch (e) { return null; }
     },
 
     // Pide fotos al usuario. En móvil/tableta ofrece cámara o galería; en el
@@ -1506,39 +1530,71 @@ window.AppFotos = {
         catch (e) { return false; }
     },
 
-    nombreArchivo(descripcion, file, n) {
+    nombreArchivo(descripcion, file, n, extOverride) {
         const d = new Date();
         const sello = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' +
             String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + String(d.getSeconds()).padStart(2, '0');
-        const ext = ((file.name || '').match(/\.([a-z0-9]{2,5})$/i) || [, 'jpg'])[1].toLowerCase();
+        const ext = extOverride || ((file.name || '').match(/\.([a-z0-9]{2,5})$/i) || [, 'jpg'])[1].toLowerCase();
         const base = ('Foto ' + (descripcion || '')).replace(/[\\/:*?"<>|\n\r\t]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80);
         return `${base} ${sello}${(n !== null && n !== undefined) ? '-' + (n + 1) : ''}.${ext}`;
     },
 
-    // Guarda los archivos y devuelve [{ archivo, mini, w, h, fecha }]
-    async adjuntar(matId, files, descripcion) {
+    // Prepara las fotos y las muestra al instante; la subida del archivo a la carpeta
+    // se hace en segundo plano (se puede seguir trabajando mientras sube).
+    // opts.chk = punto donde añadir las fotos; opts.onCambio = redibujar.
+    async adjuntar(matId, files, descripcion, opts = {}) {
         const mat = materialesTemplate.find(m => m.id === matId);
         if (!mat || !files || !files.length) return [];
         if (!(await this.asegurarCarpeta())) return [];
-        const resultado = [];
-        try {
-            const dir = await carpetaCapitulo(mat);
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const archivo = this.nombreArchivo(descripcion, file, files.length > 1 ? i : null);
-                const fh = await dir.getFileHandle(archivo, { create: true });
-                const w = await fh.createWritable();
-                await w.write(file);
-                await w.close();
-                let m = { mini: null, w: 0, h: 0 };
-                try { m = await this.miniatura(file); } catch (e) { /* formato no visualizable (p. ej. HEIC): se guarda sin miniatura */ }
-                resultado.push({ archivo, mini: m.mini, w: m.w, h: m.h, fecha: localToday() });
-            }
-        } catch (err) {
-            console.error(err);
-            window.appAlert('No se pudo guardar la foto en la carpeta del capítulo: ' + err.message, 'Error al guardar la foto');
+        const onCambio = typeof opts.onCambio === 'function' ? opts.onCambio : () => {};
+        const chk = opts.chk;
+        const self = this;
+        const preparadas = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            let m = { mini: null, w: 0, h: 0 };
+            try { m = await this.miniatura(file); } catch (e) { /* p. ej. HEIC: se guarda sin miniatura */ }
+            const reducida = await this.imagenReducida(file);     // Blob JPEG ligero, o null
+            const blob = reducida || file;
+            const archivo = this.nombreArchivo(descripcion, file, files.length > 1 ? i : null, reducida ? 'jpg' : undefined);
+            const foto = { archivo, mini: m.mini, w: m.w, h: m.h, fecha: localToday() };
+            preparadas.push({ foto, blob });
+            this._pendientes.add(archivo);
+            this._errores.delete(archivo);
         }
-        return resultado;
+        // Mostrar ya las fotos en el punto
+        if (chk) {
+            if (!Array.isArray(chk.fotos)) chk.fotos = [];
+            chk.fotos.push(...preparadas.map(p => p.foto));
+            if (typeof markDirty === 'function') markDirty();
+        }
+        onCambio();
+        // Subir en segundo plano
+        (async () => {
+            let dir;
+            try { dir = await carpetaCapitulo(mat); }
+            catch (e) {
+                preparadas.forEach(p => { self._pendientes.delete(p.foto.archivo); self._errores.add(p.foto.archivo); });
+                onCambio();
+                window.appAlert('No se pudo acceder a la carpeta del capítulo para subir las fotos: ' + (e && e.message ? e.message : e), 'Fotos');
+                return;
+            }
+            for (const { foto, blob } of preparadas) {
+                try {
+                    const fh = await dir.getFileHandle(foto.archivo, { create: true });
+                    const w = await fh.createWritable();
+                    await w.write(blob);
+                    await w.close();
+                    self._pendientes.delete(foto.archivo);
+                } catch (e) {
+                    self._pendientes.delete(foto.archivo);
+                    self._errores.add(foto.archivo);
+                    console.error('Error subiendo foto', e);
+                }
+                onCambio();
+            }
+        })();
+        return preparadas.map(p => p.foto);
     },
 
     // Muestra la foto: primero la miniatura y, si se puede leer, el original de la carpeta
