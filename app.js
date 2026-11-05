@@ -511,12 +511,27 @@ async function handleDrop(e, mat) {
 async function handleImportClick(e, mat) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!window.showOpenFilePicker) {
-        alert("Tu navegador no soporta esta función nativa de selección de archivos. Prueba arrastrando y soltando.");
+        // Fallback para navegadores que no tienen showOpenFilePicker
+        // (sobre todo móviles, Android e iOS): usamos el selector de
+        // archivos normal del propio sistema, que sí existe en todos.
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.style.display = 'none';
+        input.addEventListener('change', async () => {
+            const files = Array.from(input.files || []);
+            input.remove();
+            if (files.length > 0) {
+                await saveFilesToChapter(files, mat);
+            }
+        }, { once: true });
+        document.body.appendChild(input);
+        input.click();
         return;
     }
-    
+
     try {
         // Asegurar que tenemos la carpeta principal
         if (!projectDirHandle) {
