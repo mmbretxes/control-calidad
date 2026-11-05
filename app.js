@@ -536,10 +536,15 @@ async function handleImportClick(e, mat) {
         const safeName = mat.name.replace(/[\\/:*?"<>|]/g, '-');
         const chapterHandle = await catHandle.getDirectoryHandle(safeName, { create: true });
 
-        const fileHandles = await window.showOpenFilePicker({
-            multiple: true,
-            startIn: chapterHandle
-        });
+        // "startIn" solo se admite con una carpeta real del navegador
+        // (File System Access API). En modo Drive, chapterHandle es un
+        // objeto propio (DriveDirHandle) que no sirve para esto, y pasarlo
+        // provoca el error "not a valid enum value of type WellKnownDirectory".
+        const opcionesSelector = { multiple: true };
+        if (typeof FileSystemDirectoryHandle !== 'undefined' && chapterHandle instanceof FileSystemDirectoryHandle) {
+            opcionesSelector.startIn = chapterHandle;
+        }
+        const fileHandles = await window.showOpenFilePicker(opcionesSelector);
         
         const files = [];
         for (const handle of fileHandles) {
